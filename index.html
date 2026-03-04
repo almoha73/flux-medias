@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Plateforme pour vos flux Radio et TV favoris" />
+  <title>Flux Radio & TV</title>
+  <!-- Google Fonts for better typography -->
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <link href="/src/style.css" rel="stylesheet" />
+  <!-- Support pour HLS (fichiers .m3u8) -->
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+</head>
+
+<body>
+  <div class="bg-visuals">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+  </div>
+  <div id="app">
+    <header>
+      <div class="logo">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round">
+          <path d="M2 12a10 10 0 1 0 20 0 10 10 0 1 0-20 0"></path>
+          <path d="M8 12a4 4 0 1 0 8 0 4 4 0 1 0-8 0"></path>
+          <path d="M12 2v2"></path>
+          <path d="M12 20v2"></path>
+          <path d="m4.93 4.93 1.41 1.41"></path>
+          <path d="m17.66 17.66 1.41 1.41"></path>
+          <path d="M2 12h2"></path>
+          <path d="M20 12h2"></path>
+          <path d="m6.34 17.66-1.41 1.41"></path>
+          <path d="m19.07 4.93-1.41 1.41"></path>
+        </svg>
+        <h1>Mes Flux Médias</h1>
+      </div>
+      <div class="iptv-search">
+        <input type="text" id="iptv-search-input" placeholder="Rechercher partout (+30 000 chaînes)..." />
+        <button id="iptv-search-btn" class="filter-btn active">Chercher</button>
+      </div>
+
+      <div class="m3u-loader">
+        <input type="text" id="m3u-url-input" placeholder="URL d'une playlist .m3u..." />
+        <button id="m3u-load-btn" class="filter-btn">Charger M3U</button>
+        <button id="m3u-free-btn" class="filter-btn" style="background: #ef4444; color: white; border:none;">Freebox
+          TV</button>
+        <button id="m3u-fr-btn" class="filter-btn" style="background: #3b82f6; color: white; border:none;">TV
+          France</button>
+        <button id="m3u-dropbox-btn" class="filter-btn" style="background: #0061ff; color: white; border:none;">Radios
+          FR/BE/CH</button>
+      </div>
+
+      <nav class="filters" style="margin-top:1rem;">
+        <button class="filter-btn active" data-type="all">Favoris</button>
+        <button class="filter-btn" data-type="tv">TV</button>
+        <button class="filter-btn" data-type="radio">Radio</button>
+        <button class="filter-btn" data-type="playlist" id="playlist-filter-btn" style="display:none;">Playlist</button>
+      </nav>
+    </header>
+
+    <main class="main-layout">
+      <!-- Player principal -->
+      <section class="player-section">
+        <div id="main-player-container" class="main-player-container">
+          <div class="player-placeholder">
+            <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"></circle>
+              <polygon points="10 8 16 12 10 16 10 8"></polygon>
+            </svg>
+            <p>Sélectionnez une chaîne dans la liste</p>
+          </div>
+        </div>
+        <div id="main-player-info" class="main-player-info" style="display: none;">
+          <span id="main-player-type" class="stream-type"></span>
+          <h2 id="main-player-title" class="stream-title"></h2>
+          <p id="main-player-desc" class="stream-desc"></p>
+        </div>
+      </section>
+
+      <!-- Liste des chaînes -->
+      <aside class="sidebar-section">
+        <div class="stream-list" id="stream-grid">
+          <!-- Les flux seront injectés ici par JavaScript -->
+        </div>
+      </aside>
+    </main>
+
+    <footer>
+      <p>Ajoutez et regardez vos flux radio et TV préférés en toute simplicité.</p>
+    </footer>
+  </div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+
+</html>
