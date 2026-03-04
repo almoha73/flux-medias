@@ -182,6 +182,12 @@ function playStream(stream) {
   document.getElementById('main-player-title').innerText = stream.title;
   document.getElementById('main-player-desc').innerText = stream.description;
 
+  // Afficher/Cacher le bouton PiP selon le type
+  const pipBtn = document.getElementById('pip-btn');
+  if (pipBtn) {
+    pipBtn.style.display = stream.type === 'tv' ? 'flex' : 'none';
+  }
+
   // Empêcher l'écran de s'éteindre (Wake Lock)
   requestWakeLock();
 }
@@ -208,6 +214,22 @@ function releaseWakeLock() {
     wakeLock.release().then(() => {
       wakeLock = null;
     });
+  }
+}
+
+// --- Gestion du mode Picture-in-Picture ---
+async function togglePiP() {
+  const video = playerContainer.querySelector('video');
+  if (!video) return;
+
+  try {
+    if (video !== document.pictureInPictureElement) {
+      await video.requestPictureInPicture();
+    } else {
+      await document.exitPictureInPicture();
+    }
+  } catch (error) {
+    console.error("Erreur PiP:", error);
   }
 }
 
@@ -336,6 +358,7 @@ function renderStreams(filter = 'all', overrideStreams = null) {
 // Rendre les fonctions accessibles
 window.removeFavorite = removeFavorite;
 window.addFavorite = addFavorite;
+window.togglePiP = togglePiP;
 
 function parseM3U(text, sourceName) {
   const lines = text.split('\n');
