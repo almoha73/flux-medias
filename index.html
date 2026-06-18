@@ -9,8 +9,7 @@
   <!-- Google Fonts for better typography -->
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
   <link href="/src/style.css" rel="stylesheet" />
-  <!-- Support pour HLS (fichiers .m3u8) -->
-  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+
 </head>
 
 <body>
@@ -36,28 +35,7 @@
         </svg>
         <h1>Mes Flux Médias</h1>
       </div>
-      <div class="iptv-search">
-        <input type="text" id="iptv-search-input" placeholder="Rechercher partout (+30 000 chaînes)..." />
-        <button id="iptv-search-btn" class="filter-btn active">Chercher</button>
-      </div>
 
-      <div class="m3u-loader">
-        <input type="text" id="m3u-url-input" placeholder="URL d'une playlist .m3u..." />
-        <button id="m3u-load-btn" class="filter-btn">Charger M3U</button>
-        <button id="m3u-free-btn" class="filter-btn" style="background: #ef4444; color: white; border:none;">Freebox
-          TV</button>
-        <button id="m3u-fr-btn" class="filter-btn" style="background: #3b82f6; color: white; border:none;">TV
-          France</button>
-        <button id="m3u-dropbox-btn" class="filter-btn" style="background: #0061ff; color: white; border:none;">Radios
-          FR/BE/CH</button>
-      </div>
-
-      <nav class="filters" style="margin-top:1rem;">
-        <button class="filter-btn active" data-type="all">Favoris</button>
-        <button class="filter-btn" data-type="tv">TV</button>
-        <button class="filter-btn" data-type="radio">Radio</button>
-        <button class="filter-btn" data-type="playlist" id="playlist-filter-btn" style="display:none;">Playlist</button>
-      </nav>
     </header>
 
     <main class="main-layout">
@@ -79,15 +57,7 @@
               <span id="main-player-type" class="stream-type"></span>
               <h2 id="main-player-title" class="stream-title"></h2>
             </div>
-            <button id="pip-btn" onclick="window.togglePiP()" class="filter-btn"
-              style="padding: 0.6rem; display: none; align-items:center; gap:0.5rem; background: rgba(255,255,255,0.05);">
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
-                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="8" y="8" width="13" height="10" rx="2" />
-                <path d="M4 14v-7a2 2 0 0 1 2 -2h12" />
-              </svg>
-              Mini-lecteur
-            </button>
+
           </div>
           <p id="main-player-desc" class="stream-desc"></p>
         </div>
