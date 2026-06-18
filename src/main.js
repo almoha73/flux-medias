@@ -6,7 +6,7 @@ const streams = [
     title: "CNEWS",
     description: "La chaîne d'information en continu.",
     type: "tv",
-    html: `<div style="position:relative;padding-bottom:56.25%;height:0;overflow:hidden;"><iframe src="https://geo.dailymotion.com/player.html?video=x3b68jn" style="width:100%; height:100%; position:absolute; left:0px; top:0px; overflow:hidden; border-radius: 16px 16px 0 0; border:none;" allowfullscreen title="Dailymotion Video Player" allow="web-share"></iframe></div>`
+    html: `<iframe src="https://geo.dailymotion.com/player.html?video=x3b68jn" style="width:100%; height:100%; border:none; border-radius:16px 16px 0 0;" allowfullscreen title="Dailymotion Video Player" allow="web-share"></iframe>`
   },
   {
     id: 2,

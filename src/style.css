@@ -24,8 +24,8 @@ body {
   font-family: 'Outfit', sans-serif;
   background-color: var(--bg-dark);
   color: var(--text-main);
-  overflow-x: hidden;
-  min-height: 100vh;
+  overflow: hidden;
+  height: 100vh;
 }
 
 /* Background Animated Blobs */
@@ -81,6 +81,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 2rem;
+  height: 100vh;
 }
 
 /* Header & Glass Container */
@@ -188,18 +189,20 @@ input[type="text"]:focus {
   display: grid;
   grid-template-columns: 1fr 400px;
   gap: 2rem;
-  align-items: start;
+  align-items: stretch;
+  flex: 1;
+  min-height: 0;
 }
 
 .player-section {
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+  height: 100%;
 }
 
 .main-player-container {
   width: 100%;
-  aspect-ratio: 16/9;
   background: #000;
   border-radius: var(--radius-lg);
   border: 1px solid var(--glass-border);
@@ -209,6 +212,8 @@ input[type="text"]:focus {
   display: flex;
   align-items: center;
   justify-content: center;
+  flex: 1;
+  min-height: 0;
 }
 
 
@@ -240,8 +245,7 @@ input[type="text"]:focus {
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
   padding: 1.5rem;
-  height: auto;
-  max-height: 80vh;
+  height: 100%;
   overflow-y: auto;
 }
 
@@ -347,12 +351,34 @@ input[type="text"]:focus {
 
 /* Responsive Custom */
 @media (max-width: 1200px) {
+  body {
+    overflow: auto;
+    height: auto;
+    min-height: 100vh;
+  }
+
+  #app {
+    height: auto;
+    min-height: 100vh;
+  }
+
   .main-layout {
-    grid-template-columns: 1fr;
+    display: flex;
+    flex-direction: column;
+    flex: none;
+    min-height: auto;
+  }
+
+  .main-player-container {
+    flex: none;
+    aspect-ratio: 16 / 9;
+    min-height: auto;
   }
 
   .sidebar-section {
-    max-height: 400px;
+    height: auto;
+    max-height: none;
+    overflow-y: visible;
   }
 }
 
