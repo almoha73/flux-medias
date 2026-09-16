@@ -227,8 +227,15 @@ body.newsroom-theme {
   padding-left: 0.75rem;
 }
 
-@media (max-width: 680px) {
+@media (max-width: 768px) {
   .brand-tagline { display: none; }
+  .news-header {
+    padding: 0.45rem 0.75rem;
+    justify-content: center;
+  }
+  .news-header .nav-filters {
+    display: none; /* Remplacé sur mobile par le dock bas ergonomique */
+  }
 }
 
 /* Navigation Filters */
@@ -398,6 +405,23 @@ body.newsroom-theme {
   color: var(--text-white);
 }
 
+@media (max-width: 768px) {
+  .fil-info-banner {
+    height: 32px;
+  }
+  .fil-info-label {
+    padding: 0 0.5rem;
+    font-size: 0.68rem;
+    gap: 0.35rem;
+  }
+  .fil-info-action-btn {
+    padding: 0 0.5rem;
+  }
+  .fil-info-action-btn span {
+    display: none; /* Masqué sur mobile pour laisser 80% de largeur au texte du direct */
+  }
+}
+
 /* ── Stations Broadcast Selector ───────────────────────────────────── */
 .stations-section {
   display: flex;
@@ -412,7 +436,37 @@ body.newsroom-theme {
 
 @media (max-width: 768px) {
   .stations-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(auto-fit, minmax(95px, 1fr));
+    gap: 0.45rem;
+  }
+  .station-tile {
+    padding: 0.45rem 0.35rem !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    text-align: center !important;
+    gap: 0.25rem !important;
+    min-width: 0 !important;
+  }
+  .station-logo-box {
+    width: 38px !important;
+    height: 32px !important;
+  }
+  .station-name {
+    font-size: 0.74rem !important;
+    text-align: center !important;
+  }
+  .station-headline {
+    justify-content: center !important;
+  }
+  .station-sub {
+    display: none !important;
+  }
+  .station-badges {
+    display: none !important;
+  }
+  .badge-live-tag {
+    font-size: 0.52rem !important;
+    padding: 1px 3px !important;
   }
 }
 
@@ -1524,7 +1578,41 @@ body.newsroom-theme {
     display: flex;
   }
   .newsroom-shell {
-    padding-bottom: calc(68px + var(--sab));
+    padding: 0.4rem 0.5rem calc(68px + var(--sab));
+    gap: 0.5rem;
+  }
+  .broadcast-console-section {
+    min-height: auto;
+    flex: initial;
+  }
+  .console-frame {
+    min-height: 200px;
+  }
+  #hls-video {
+    min-height: 190px;
+    max-height: 46vh;
+  }
+  .cnews-tv-view {
+    min-height: 190px;
+  }
+  .radio-console-view {
+    min-height: 260px;
+    padding: 1rem 0.75rem;
+    gap: 0.75rem;
+  }
+  .standby-view {
+    min-height: 180px;
+    padding: 1.1rem 0.75rem;
+    gap: 0.55rem;
+  }
+  .standby-view h2 {
+    font-size: 1rem;
+    margin-top: 0.2rem;
+  }
+  .standby-view p {
+    font-size: 0.76rem;
+    max-width: 290px;
+    line-height: 1.4;
   }
 }
 
