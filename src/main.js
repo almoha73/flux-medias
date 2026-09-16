@@ -59,8 +59,8 @@ const STATION_LOGOS = {
     </div>
   `,
   europe1: `
-    <div style="background:#003ec7;color:#fff;border-radius:99px;padding:2px 8px;font-family:'Montserrat',sans-serif;font-weight:800;font-size:0.75rem;letter-spacing:-0.02em;">
-      europe <span style="font-weight:900">1</span>
+    <div style="display:inline-flex;align-items:center;justify-content:center;white-space:nowrap;background:#003ec7;color:#fff;border-radius:999px;padding:3px 8px;font-family:'Montserrat',sans-serif;font-weight:800;font-size:0.68rem;letter-spacing:-0.02em;line-height:1;box-shadow:0 2px 8px rgba(0,62,199,0.35);">
+      europe&nbsp;<span style="font-weight:900;font-size:0.74rem;">1</span>
     </div>
   `
 };
