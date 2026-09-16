@@ -1,4 +1,5 @@
 import './style.css';
+import { App } from '@capacitor/app';
 
 // ── SVG Icons (Newsroom & Broadcast Vectors) ──────────────────────────────────
 const ICONS = {
@@ -618,12 +619,24 @@ async function fetchRSS(localProxyUrl, directRssUrl, sourceName) {
         const pubDate = pubDateRaw ? new Date(pubDateRaw) : new Date();
         let description = item.querySelector('description')?.textContent?.trim() || '';
 
+        // Extract image enclosure if available
+        let image = '';
+        const imgEnclosure = item.querySelector('enclosure[type^="image"]');
+        if (imgEnclosure && imgEnclosure.getAttribute('url')) {
+          image = imgEnclosure.getAttribute('url');
+        } else {
+          const mediaContent = item.querySelector('media\\:content, content');
+          if (mediaContent && mediaContent.getAttribute('url')) {
+            image = mediaContent.getAttribute('url');
+          }
+        }
+
         const tempDiv = document.createElement('div');
         tempDiv.innerHTML = description;
         description = tempDiv.textContent || tempDiv.innerText || '';
 
         if (title) {
-          results.push({ title, link, pubDate, description, source: sourceName });
+          results.push({ title, link, pubDate, description, source: sourceName, image });
         }
       });
 
@@ -644,13 +657,15 @@ async function fetchRSS(localProxyUrl, directRssUrl, sourceName) {
           const tempDiv = document.createElement('div');
           tempDiv.innerHTML = item.description || '';
           const description = tempDiv.textContent || tempDiv.innerText || '';
+          const image = item.thumbnail || (item.enclosure && item.enclosure.link) || '';
 
           return {
             title: item.title || '',
             link: item.link || '',
             pubDate: item.pubDate ? new Date(item.pubDate) : new Date(),
             description: description,
-            source: sourceName
+            source: sourceName,
+            image: image
           };
         });
       }
@@ -681,14 +696,14 @@ async function loadAllNewsFeeds() {
         title: "CNEWS en direct 24h/24 : retrouvez tous les débats et l'actualité politique",
         link: "https://www.cnews.fr",
         pubDate: new Date(),
-        description: "Suivez l'information en continu en France et à l'international.",
+        description: "Suivez l'information en continu en France et à l'international depuis le studio broadcast.",
         source: "cnews"
       },
       {
         title: "EUROPE 1 en direct : interviews, libre antenne et grands reportages",
         link: "https://www.europe1.fr",
         pubDate: new Date(),
-        description: "Écoutez les rendez-vous d'actualité et d'analyse en direct du studio.",
+        description: "Écoutez les rendez-vous d'actualité et d'analyse en direct de l'antenne radio.",
         source: "europe1"
       }
     ];
@@ -711,16 +726,29 @@ function updateMarquee(articles) {
   if (!marquee) return;
 
   const topArticles = articles.slice(0, 15);
-  const itemsHtml = topArticles.map(a => `
-    <a class="ticker-item" href="${a.link || '#'}" target="_blank" rel="noopener">
+  const itemsHtml = topArticles.map((a, idx) => `
+    <button class="ticker-item" type="button" data-ticker-idx="${idx}">
       <span class="ticker-source ${a.source}">${a.source === 'cnews' ? 'CNEWS' : 'EUROPE 1'}</span>
       <span>${escapeHtml(a.title)}</span>
-    </a>
+    </button>
     <span class="ticker-sep">•</span>
   `).join('');
 
   // Duplicate for smooth seamless loop
   marquee.innerHTML = itemsHtml + itemsHtml;
+
+  // In-app click handler (no external navigation)
+  marquee.querySelectorAll('.ticker-item').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const idx = parseInt(btn.dataset.tickerIdx, 10);
+      const article = topArticles[idx];
+      if (article) {
+        openArticleModal(article);
+      }
+    });
+  });
 
   // Régler une vitesse de lecture calme et confortable (~50px/seconde)
   requestAnimationFrame(() => {
@@ -750,26 +778,44 @@ function renderDrawerNews() {
     return;
   }
 
-  containerEl.innerHTML = filtered.map(item => {
+  containerEl.innerHTML = filtered.map((item, idx) => {
     const timeAgo = formatTimeAgo(item.pubDate);
     const sourceLabel = item.source === 'cnews' ? 'CNEWS' : 'EUROPE 1';
 
     return `
-      <article class="feed-item-card">
+      <article class="feed-item-card" data-feed-idx="${idx}" role="button" tabindex="0">
         <div class="feed-item-top">
           <span class="feed-source-tag ${item.source}">${sourceLabel}</span>
           <span class="feed-time">${timeAgo}</span>
         </div>
-        <a class="feed-item-title" href="${item.link}" target="_blank" rel="noopener">
+        <div class="feed-item-title">
           ${escapeHtml(item.title)}
-        </a>
+        </div>
         ${item.description ? `<p class="feed-item-snippet">${escapeHtml(item.description)}</p>` : ''}
-        <a class="feed-item-link" href="${item.link}" target="_blank" rel="noopener">
-          Lire la suite →
-        </a>
+        <button class="feed-item-link" type="button">
+          Lire la dépêche en direct →
+        </button>
       </article>
     `;
   }).join('');
+
+  containerEl.querySelectorAll('.feed-item-card').forEach(card => {
+    const idx = parseInt(card.dataset.feedIdx, 10);
+    const article = filtered[idx];
+    const clickHandler = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (article) openArticleModal(article);
+    };
+
+    card.addEventListener('click', clickHandler);
+    card.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        if (article) openArticleModal(article);
+      }
+    });
+  });
 }
 
 function formatTimeAgo(date) {
@@ -784,12 +830,122 @@ function formatTimeAgo(date) {
 }
 
 function escapeHtml(str) {
-  return str
+  return (str || '')
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
+}
+
+// ── In-App News Article Reader Modal ──────────────────────────────────────────
+function openArticleModal(article) {
+  if (!article) return;
+
+  const overlay = document.getElementById('article-modal-overlay');
+  const titleEl = document.getElementById('modal-article-title');
+  const descEl = document.getElementById('modal-article-desc');
+  const timeEl = document.getElementById('modal-article-time');
+  const pillEl = document.getElementById('modal-source-pill');
+  const imgBox = document.getElementById('modal-article-img-box');
+  const imgEl = document.getElementById('modal-article-img');
+
+  if (titleEl) titleEl.textContent = article.title || 'Actualité en direct';
+  if (descEl) descEl.textContent = article.description || 'Suivez les prochaines éditions en direct sur l\'antenne pour plus de précisions sur cette information.';
+  if (timeEl) timeEl.textContent = formatTimeAgo(article.pubDate) || 'En continu';
+
+  if (pillEl) {
+    const isCnews = article.source === 'cnews';
+    pillEl.textContent = isCnews ? 'CNEWS DIRECT' : 'EUROPE 1 DIRECT';
+    pillEl.className = `modal-source-pill ${article.source}`;
+  }
+
+  if (imgBox && imgEl) {
+    if (article.image) {
+      imgEl.src = article.image;
+      imgEl.alt = article.title || 'Illustration';
+      imgBox.style.display = 'block';
+    } else {
+      imgBox.style.display = 'none';
+      imgEl.src = '';
+    }
+  }
+
+  overlay?.classList.add('open');
+  overlay?.setAttribute('aria-hidden', 'false');
+
+  // Push state to browser/webview history so Android back gesture returns cleanly
+  try {
+    history.pushState({ modal: 'article' }, '');
+  } catch (e) {
+    // Ignored in restricted contexts
+  }
+}
+
+function closeArticleModal() {
+  const overlay = document.getElementById('article-modal-overlay');
+  if (overlay && overlay.classList.contains('open')) {
+    overlay.classList.remove('open');
+    overlay.setAttribute('aria-hidden', 'true');
+  }
+}
+
+function setupArticleModal() {
+  const overlay = document.getElementById('article-modal-overlay');
+  const backBtn = document.getElementById('btn-modal-back');
+  const closeMainBtn = document.getElementById('btn-modal-close-main');
+
+  const closeAndBack = () => {
+    closeArticleModal();
+    if (window.history.state && window.history.state.modal === 'article') {
+      window.history.back();
+    }
+  };
+
+  backBtn?.addEventListener('click', closeAndBack);
+  closeMainBtn?.addEventListener('click', closeAndBack);
+
+  overlay?.addEventListener('click', (e) => {
+    if (e.target === overlay) {
+      closeAndBack();
+    }
+  });
+}
+
+// ── Android Back Button & Popstate Support ────────────────────────────────────
+function setupAndroidBackButton() {
+  try {
+    App.addListener('backButton', () => {
+      const modal = document.getElementById('article-modal-overlay');
+      if (modal && modal.classList.contains('open')) {
+        closeArticleModal();
+        return;
+      }
+
+      const drawer = document.getElementById('news-drawer-overlay');
+      if (drawer && drawer.classList.contains('open')) {
+        drawer.classList.remove('open');
+        return;
+      }
+
+      // If no overlays are open, exit app smoothly
+      App.exitApp();
+    });
+  } catch (e) {
+    console.warn('Capacitor App backButton listener non disponible:', e);
+  }
+
+  // Also support window popstate (web / Android WebView back gesture)
+  window.addEventListener('popstate', () => {
+    const modal = document.getElementById('article-modal-overlay');
+    if (modal && modal.classList.contains('open')) {
+      closeArticleModal();
+    }
+    const drawer = document.getElementById('news-drawer-overlay');
+    if (drawer && drawer.classList.contains('open')) {
+      drawer.classList.remove('open');
+    }
+  });
 }
 
 // ── Drawer Open / Close / Filter Events ──────────────────────────────────────
@@ -800,18 +956,27 @@ function setupDrawer() {
   const refreshBtn = document.getElementById('btn-refresh-rss');
   const feedTabs = document.querySelectorAll('.feed-tab');
 
-  openBtn?.addEventListener('click', () => {
+  const openDrawer = () => {
     overlay?.classList.add('open');
     renderDrawerNews();
-  });
+    try {
+      history.pushState({ drawer: true }, '');
+    } catch (e) {}
+  };
 
-  closeBtn?.addEventListener('click', () => {
+  const closeDrawer = () => {
     overlay?.classList.remove('open');
-  });
+    if (window.history.state && window.history.state.drawer) {
+      window.history.back();
+    }
+  };
+
+  openBtn?.addEventListener('click', openDrawer);
+  closeBtn?.addEventListener('click', closeDrawer);
 
   overlay?.addEventListener('click', (e) => {
     if (e.target === overlay) {
-      overlay.classList.remove('open');
+      closeDrawer();
     }
   });
 
@@ -834,6 +999,8 @@ document.addEventListener('DOMContentLoaded', () => {
   initBroadcastClock();
   setupFilters();
   setupDrawer();
+  setupArticleModal();
+  setupAndroidBackButton();
   renderStations();
   renderStandby();
   loadAllNewsFeeds();
@@ -841,3 +1008,4 @@ document.addEventListener('DOMContentLoaded', () => {
   // Auto-refresh news feeds every 3 minutes
   setInterval(loadAllNewsFeeds, 180000);
 });
+
