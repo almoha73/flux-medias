@@ -1075,7 +1075,20 @@ document.addEventListener('DOMContentLoaded', () => {
   setupArticleModal();
   setupAndroidBackButton();
   renderStations();
-  renderStandby();
+  
+  const params = new URLSearchParams(window.location.search);
+  const initialStationId = params.get('station');
+  if (initialStationId) {
+    const s = streams.find(st => st.id === parseInt(initialStationId, 10));
+    if (s) {
+      selectStation(s);
+    } else {
+      renderStandby();
+    }
+  } else {
+    renderStandby();
+  }
+
   loadAllNewsFeeds();
 
   // Auto-refresh news feeds every 3 minutes
