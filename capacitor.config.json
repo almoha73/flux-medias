@@ -1,0 +1,11 @@
+{
+  "appId": "com.almoha73.fluxmedias",
+  "appName": "FluxMedias",
+  "webDir": "dist",
+  "server": {
+    "allowNavigation": [
+      "*"
+    ],
+    "cleartext": true
+  }
+}

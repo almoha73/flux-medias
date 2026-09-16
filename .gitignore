@@ -22,3 +22,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Android / Binaries
+*.apk
+*.tar.gz
+jdk-21.0.2/
