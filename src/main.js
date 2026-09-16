@@ -44,23 +44,21 @@ const ICONS = {
 // ── Official Station Logos SVG ────────────────────────────────────────────────
 const STATION_LOGOS = {
   cnews: `
-    <div style="display:flex;align-items:center;font-family:'Montserrat',sans-serif;font-weight:900;">
-      <span style="background:#e1001a;color:#fff;font-size:0.85rem;padding:2px 4px;border-radius:2px;margin-right:2px;">C</span>
-      <span style="color:#fff;font-size:0.85rem;letter-spacing:0.02em;">NEWS</span>
+    <div class="logo-embed-cnews">
+      <span class="cnews-box">C</span><span class="cnews-text">NEWS</span>
     </div>
   `,
   cnewsRadio: `
-    <div style="display:flex;flex-direction:column;align-items:center;font-family:'Montserrat',sans-serif;font-weight:900;line-height:1;">
-      <div style="display:flex;align-items:center;">
-        <span style="background:#e1001a;color:#fff;font-size:0.75rem;padding:1px 3px;border-radius:2px;margin-right:2px;">C</span>
-        <span style="color:#fff;font-size:0.75rem;">NEWS</span>
+    <div class="logo-embed-cnews-radio">
+      <div class="logo-embed-cnews">
+        <span class="cnews-box">C</span><span class="cnews-text">NEWS</span>
       </div>
-      <span style="font-size:0.5rem;color:#fca5a5;margin-top:2px;letter-spacing:0.08em;">RADIO</span>
+      <span class="radio-pill">RADIO</span>
     </div>
   `,
   europe1: `
-    <div style="display:inline-flex;align-items:center;justify-content:center;white-space:nowrap;background:#003ec7;color:#fff;border-radius:999px;padding:3px 8px;font-family:'Montserrat',sans-serif;font-weight:800;font-size:0.68rem;letter-spacing:-0.02em;line-height:1;box-shadow:0 2px 8px rgba(0,62,199,0.35);">
-      europe&nbsp;<span style="font-weight:900;font-size:0.74rem;">1</span>
+    <div class="logo-embed-europe1">
+      europe<span>1</span>
     </div>
   `
 };
@@ -72,10 +70,7 @@ const CANAL_AUDIO = 'https://hls-m015.live-cft.canalplus-cdn.net/live/disk/cnews
 const streams = [
   {
     id: 1,
-    title: 'CNews',
-    sub: 'La chaîne d\'info en continu',
-    channelTag: 'TNT CH 16',
-    quality: '1080p HD',
+    title: 'CNews TV',
     type: 'tv',
     theme: 'cnews',
     logoHtml: STATION_LOGOS.cnews,
@@ -84,9 +79,6 @@ const streams = [
   {
     id: 2,
     title: 'CNews Radio',
-    sub: 'L\'antenne CNews en direct audio',
-    channelTag: 'DAB+ / NUMÉRIQUE',
-    quality: 'Audio HQ',
     type: 'radio',
     theme: 'cnews',
     logoHtml: STATION_LOGOS.cnewsRadio,
@@ -96,9 +88,6 @@ const streams = [
   {
     id: 3,
     title: 'Europe 1',
-    sub: 'Écoutez le direct & les débats',
-    channelTag: 'FM & DAB+',
-    quality: 'MP3 128k',
     type: 'radio',
     theme: 'europe1',
     logoHtml: STATION_LOGOS.europe1,
@@ -210,23 +199,15 @@ function renderStations() {
     tile.className = `station-tile${isActive ? ' active' : ''}`;
     tile.dataset.id = s.id;
     tile.dataset.theme = s.theme;
-    tile.setAttribute('role', 'button');
-    tile.setAttribute('tabindex', '0');
+    tile.setAttribute('aria-label', s.title);
 
     tile.innerHTML = `
-      <div class="station-logo-box" style="background: ${s.theme === 'cnews' ? '#0b0f19' : '#031b4d'}">
+      <div class="station-logo-box">
         ${s.logoHtml}
       </div>
-      <div class="station-meta">
-        <div class="station-headline">
-          <span class="station-name">${s.title}</span>
-          <span class="badge-live-tag">EN LIGNE</span>
-        </div>
-        <span class="station-sub">${s.sub}</span>
-        <div class="station-badges">
-          <span class="badge-canal">${s.channelTag}</span>
-          <span class="badge-canal">${s.quality}</span>
-        </div>
+      <div class="station-live-pill">
+        <span class="badge-dot"></span>
+        <span>DIRECT</span>
       </div>
     `;
 
@@ -276,7 +257,7 @@ function playTV(stream) {
     <div class="cnews-tv-view">
       <div class="tv-loader" id="tv-loading">
         <div class="spinner-news"></div>
-        <p>CONNEXION DIRECT CANAL+ CDN (${stream.title})…</p>
+        <p>Chargement du direct…</p>
       </div>
 
       <div class="tv-onair-bar">
@@ -415,107 +396,73 @@ function renderRadioConsole(stream, playing) {
   const emblemClass = isCnews ? 'cnews-radio-theme' : 'europe1-theme';
   const emblemContent = isCnews ? STATION_LOGOS.cnewsRadio : STATION_LOGOS.europe1;
 
-  const renderLeds = () => {
-    return Array.from({ length: 20 }, (_, i) => {
-      const color = i < 12 ? 'green' : i < 17 ? 'yellow' : 'red';
-      return `<span class="vu-led ${color}"></span>`;
-    }).join('');
-  };
-
   container.innerHTML = `
-    <div class="radio-console-view ${playing ? 'live' : ''}" id="radio-console">
-      <!-- Studio ON AIR Warning Box -->
-      <div class="studio-onair-sign">
-        <span class="sign-bulb"></span>
-        <span>STUDIO ON AIR</span>
+    <div class="radio-player-view ${playing ? 'live' : ''}" id="radio-console">
+      <div class="radio-live-header">
+        <span class="radio-live-pill ${isCnews ? 'cnews' : 'europe1'}">
+          <span class="live-dot-pulse"></span>
+          <span>DIRECT AUDIO</span>
+        </span>
       </div>
 
-      <!-- Station Emblem -->
-      <div class="studio-station-badge">
-        <div class="station-emblem ${emblemClass}">
+      <div class="radio-artwork-container">
+        <div class="radio-artwork-glow ${emblemClass}"></div>
+        <div class="radio-artwork-disc ${emblemClass}">
           ${emblemContent}
         </div>
-        <h2 class="studio-station-title">${stream.title}</h2>
-        <div class="studio-station-status">Diffusion Direct Studio · ${stream.quality}</div>
       </div>
 
-      <!-- Professional Broadcast Stereo VU-Meter -->
-      <div class="stereo-vumeter" aria-label="VU-mètre stéréo broadcast">
-        <div class="vu-channel">
-          <span class="vu-label">L</span>
-          <div class="vu-led-track" id="vu-track-l">
-            ${renderLeds()}
-          </div>
-        </div>
-        <div class="vu-channel">
-          <span class="vu-label">R</span>
-          <div class="vu-led-track" id="vu-track-r">
-            ${renderLeds()}
-          </div>
-        </div>
-        <div class="vu-scale">
-          <span>-36</span>
-          <span>-24</span>
-          <span>-12</span>
-          <span>-6</span>
-          <span>0dB</span>
-          <span>+3</span>
-        </div>
+      <div class="radio-meta-info">
+        <h2 class="radio-title">${stream.title}</h2>
+        <span class="radio-status-text">${playing ? 'En cours de diffusion' : 'En pause'}</span>
       </div>
 
-      <!-- Control Deck -->
-      <div class="radio-deck-controls">
-        <button class="btn-broadcast-stop" id="btn-radio-stop" title="Interrompre la liaison">
-          ${ICONS.stop}
-        </button>
-        <button class="btn-broadcast-master ${playing ? 'pause-mode' : 'play-mode'}" id="btn-radio-toggle">
+      <!-- Equalizer Animated Sound Wave -->
+      <div class="sound-wave-equalizer" aria-label="Visualiseur audio">
+        <span class="sound-bar bar-1"></span>
+        <span class="sound-bar bar-2"></span>
+        <span class="sound-bar bar-3"></span>
+        <span class="sound-bar bar-4"></span>
+        <span class="sound-bar bar-5"></span>
+        <span class="sound-bar bar-6"></span>
+        <span class="sound-bar bar-7"></span>
+        <span class="sound-bar bar-8"></span>
+      </div>
+
+      <div class="radio-main-controls">
+        <button class="btn-radio-playpause ${playing ? 'playing' : 'paused'}" id="btn-radio-toggle" aria-label="${playing ? 'Mettre en pause' : 'Écouter'}">
           ${playing ? ICONS.pause : ICONS.play}
-          <span id="btn-toggle-label">${playing ? 'SUSPENDRE L\'ANTENNE' : 'LANCER L\'ANTENNE'}</span>
         </button>
       </div>
 
-      <!-- Master Volume Fader -->
-      <div class="master-fader-bar">
-        <span class="fader-label">NIVEAU MASTER</span>
-        <input type="range" class="fader-slider" id="fader-slider" min="0" max="1" step="0.05" value="${userVolume}">
-        <span class="fader-value" id="fader-readout">${Math.round(userVolume * 100)}%</span>
-      </div>
+      <div class="radio-bottom-bar">
+        <div class="radio-volume-control">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+            <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+          </svg>
+          <input type="range" class="fader-slider" id="fader-slider" min="0" max="1" step="0.05" value="${userVolume}" aria-label="Volume">
+        </div>
 
-      <!-- Ergonomic Switch Bar (Thumb accessible) -->
-      <div class="radio-quick-actions">
-        <button class="btn-quick-switch tv" id="btn-quick-tv">
+        <button class="btn-switch-direct-tv" id="btn-quick-tv">
           ${ICONS.tv}
-          <span>BASCULER VERS CNEWS TV DIRECT</span>
-        </button>
-        <button class="btn-quick-switch other" id="btn-quick-other-station">
-          ${ICONS.radio}
-          <span>${stream.id === 2 ? 'ÉCOUTER EUROPE 1' : 'ÉCOUTER CNEWS RADIO'}</span>
+          <span>DIRECT TV</span>
         </button>
       </div>
     </div>
   `;
 
-  document.getElementById('btn-radio-stop')?.addEventListener('click', () => stopBroadcast(true));
   document.getElementById('btn-radio-toggle')?.addEventListener('click', toggleRadioPlayback);
-
   document.getElementById('btn-quick-tv')?.addEventListener('click', () => {
     const tvStream = streams.find(s => s.type === 'tv');
     if (tvStream) selectStation(tvStream);
   });
 
-  document.getElementById('btn-quick-other-station')?.addEventListener('click', () => {
-    const otherRadio = streams.find(s => s.type === 'radio' && s.id !== stream.id);
-    if (otherRadio) selectStation(otherRadio);
-  });
-
   const slider = document.getElementById('fader-slider');
-  const readout = document.getElementById('fader-readout');
-
   slider?.addEventListener('input', (e) => {
     userVolume = parseFloat(e.target.value);
     localStorage.setItem('flux_volume', userVolume.toString());
     if (webAudio) webAudio.volume = userVolume;
-    if (readout) readout.textContent = `${Math.round(userVolume * 100)}%`;
   });
 }
 
@@ -536,56 +483,22 @@ function toggleRadioPlayback() {
 
   const consoleView = document.getElementById('radio-console');
   const toggleBtn = document.getElementById('btn-radio-toggle');
+  const statusText = document.querySelector('.radio-status-text');
 
   if (consoleView) consoleView.classList.toggle('live', isPlaying);
+  if (statusText) statusText.textContent = isPlaying ? 'En cours de diffusion' : 'En pause';
   if (toggleBtn) {
-    toggleBtn.className = `btn-broadcast-master ${isPlaying ? 'pause-mode' : 'play-mode'}`;
-    toggleBtn.innerHTML = `${isPlaying ? ICONS.pause : ICONS.play} <span id="btn-toggle-label">${isPlaying ? 'SUSPENDRE L\'ANTENNE' : 'LANCER L\'ANTENNE'}</span>`;
+    toggleBtn.className = `btn-radio-playpause ${isPlaying ? 'playing' : 'paused'}`;
+    toggleBtn.innerHTML = isPlaying ? ICONS.pause : ICONS.play;
   }
-
-  if (isPlaying) startVUMeter();
-  else stopVUMeter();
 }
 
-// ── Realistic VU-Meter Simulation ─────────────────────────────────────────────
 function startVUMeter() {
-  stopVUMeter();
-
-  vuMeterInterval = setInterval(() => {
-    if (!isPlaying) {
-      resetVULeds();
-      return;
-    }
-
-    const baseLevel = Math.max(3, Math.floor(userVolume * 14));
-    const randomL = Math.min(20, Math.max(0, baseLevel + Math.floor((Math.random() - 0.45) * 7)));
-    const randomR = Math.min(20, Math.max(0, baseLevel + Math.floor((Math.random() - 0.45) * 7)));
-
-    updateChannelLEDs('vu-track-l', randomL);
-    updateChannelLEDs('vu-track-r', randomR);
-  }, 100);
-}
-
-function updateChannelLEDs(trackId, activeCount) {
-  const track = document.getElementById(trackId);
-  if (!track) return;
-  const leds = track.children;
-  for (let i = 0; i < leds.length; i++) {
-    leds[i].classList.toggle('active', i < activeCount);
-  }
-}
-
-function resetVULeds() {
-  updateChannelLEDs('vu-track-l', 0);
-  updateChannelLEDs('vu-track-r', 0);
+  // Géré via animations CSS GPU natives pour un affichage fluide et économe
 }
 
 function stopVUMeter() {
-  if (vuMeterInterval) {
-    clearInterval(vuMeterInterval);
-    vuMeterInterval = null;
-  }
-  resetVULeds();
+  // Géré via suppression de la classe .live
 }
 
 // ── Stop & Reset ──────────────────────────────────────────────────────────────
@@ -625,33 +538,44 @@ function renderStandby() {
   stopVUMeter();
 
   container.innerHTML = `
-    <div class="standby-view">
-      <div class="test-bars-box" aria-hidden="true">
-        <span class="bar-c1"></span>
-        <span class="bar-c2"></span>
-        <span class="bar-c3"></span>
-        <span class="bar-c4"></span>
-        <span class="bar-c5"></span>
-        <span class="bar-c6"></span>
-        <span class="bar-c7"></span>
+    <div class="cnews-hero-standby">
+      <div class="hero-live-badge">
+        <span class="hero-pulse-dot"></span>
+        <span>LE DIRECT</span>
       </div>
 
-      <h2 class="standby-title">RÉGIE DE DIFFUSION EN DIRECT</h2>
-      <p class="standby-desc">Sélectionnez une station ci-dessus pour engager la liaison broadcast direct CNews (TV) ou Europe 1 (Radio).</p>
+      <div class="hero-brand-card">
+        <div class="hero-cnews-logo">
+          <span class="cnews-box-large">C</span><span class="cnews-text-large">NEWS</span>
+        </div>
+      </div>
 
-      <div class="standby-quick-buttons">
-        <button class="quick-feed-btn" id="quick-btn-cnews">
-          <span style="color:#e1001a">${ICONS.tv}</span> CNEWS TÉLÉVISION
+      <div class="hero-action-buttons">
+        <button class="btn-hero-play" id="quick-btn-cnews">
+          <span class="btn-play-triangle">${ICONS.play}</span>
+          <span>REGARDER LE DIRECT CNEWS</span>
         </button>
-        <button class="quick-feed-btn" id="quick-btn-europe1">
-          <span style="color:#003ec7">${ICONS.radio}</span> EUROPE 1 RADIO
-        </button>
+        <div class="hero-sub-actions">
+          <button class="btn-hero-radio" id="quick-btn-cnews-radio">
+            ${ICONS.radio}
+            <span>CNews Radio</span>
+          </button>
+          <button class="btn-hero-radio europe1" id="quick-btn-europe1">
+            ${ICONS.radio}
+            <span>Europe 1</span>
+          </button>
+        </div>
       </div>
     </div>
   `;
 
   document.getElementById('quick-btn-cnews')?.addEventListener('click', () => {
     const s = streams.find(st => st.id === 1);
+    if (s) selectStation(s);
+  });
+
+  document.getElementById('quick-btn-cnews-radio')?.addEventListener('click', () => {
+    const s = streams.find(st => st.id === 2);
     if (s) selectStation(s);
   });
 
