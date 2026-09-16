@@ -29,6 +29,11 @@
   
   --font-brand: 'Montserrat', -apple-system, sans-serif;
   --font-ui: 'Inter', -apple-system, sans-serif;
+
+  /* Safe Area Insets for Modern Mobile Screens (Notches, Status Bars, Gesture Bars) */
+  --sat: env(safe-area-inset-top, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --safe-top-padding: max(0.5rem, calc(var(--sat) + 0.35rem));
 }
 
 /* ── Reset & Base ──────────────────────────────────────────────────── */
@@ -56,7 +61,7 @@ body.newsroom-theme {
   font-size: 0.73rem;
   font-weight: 600;
   letter-spacing: 0.05em;
-  padding: 0.35rem 1.2rem;
+  padding: var(--safe-top-padding) 1.2rem 0.45rem;
   color: var(--text-dim);
 }
 
@@ -1088,7 +1093,7 @@ body.newsroom-theme {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 1.1rem 1.4rem;
+  padding: max(1.1rem, calc(var(--sat) + 0.8rem)) 1.4rem 1.1rem;
   border-bottom: 1px solid var(--border-news);
   background-color: #070b13;
 }
@@ -1374,7 +1379,7 @@ body.newsroom-theme {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.85rem 1.2rem;
+  padding: max(1.1rem, calc(var(--sat) + 0.8rem)) 1.2rem 0.85rem;
   background-color: #070b13;
   border-bottom: 1px solid var(--border-news);
   flex-shrink: 0;
@@ -1463,28 +1468,159 @@ body.newsroom-theme {
   color: var(--text-light);
 }
 
-.article-modal-actions {
-  margin-top: 1.5rem;
-  padding-top: 1rem;
+/* ── Sticky Bottom Return Bar (Ergonomic Thumb Access) ─────────────── */
+.article-modal-bottombar {
+  padding: 0.75rem 1.2rem max(0.85rem, calc(var(--sab) + 0.5rem));
+  background-color: #070b13;
   border-top: 1px solid var(--border-news);
+  flex-shrink: 0;
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.5);
 }
 
-.btn-article-close-main {
+.btn-modal-bottom-back {
   width: 100%;
-  padding: 0.9rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  padding: 0.85rem 1.2rem;
   border-radius: var(--radius-xs);
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid var(--border-news-light);
+  background-color: var(--cnews-red);
+  border: none;
   color: #ffffff;
   font-family: var(--font-brand);
-  font-size: 0.88rem;
-  font-weight: 800;
+  font-size: 0.92rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
   cursor: pointer;
-  text-align: center;
-  transition: all 0.2s ease;
+  box-shadow: 0 4px 18px rgba(225, 0, 26, 0.45);
+  transition: transform 0.15s ease, background-color 0.15s ease;
 }
 
-.btn-article-close-main:hover {
-  background-color: rgba(255, 255, 255, 0.16);
-  border-color: #ffffff;
+.btn-modal-bottom-back:active {
+  transform: scale(0.97);
+}
+
+/* ── Mobile Ergonomic Bottom Navigation Dock ──────────────────────── */
+.mobile-bottom-dock {
+  display: none;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(7, 11, 19, 0.96);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-top: 1px solid var(--border-news);
+  padding: 0.45rem 0.5rem max(0.5rem, calc(var(--sab) + 0.25rem));
+  z-index: 1000;
+  box-shadow: 0 -4px 25px rgba(0, 0, 0, 0.6);
+  justify-content: space-around;
+  align-items: center;
+}
+
+@media (max-width: 768px) {
+  .mobile-bottom-dock {
+    display: flex;
+  }
+  .newsroom-shell {
+    padding-bottom: calc(68px + var(--sab));
+  }
+}
+
+.bottom-dock-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  padding: 0.4rem 0.6rem;
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+  font-family: var(--font-brand);
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  transition: all 0.15s ease;
+  flex: 1;
+}
+
+.bottom-dock-btn svg {
+  transition: transform 0.15s ease;
+}
+
+.bottom-dock-btn:active {
+  transform: scale(0.94);
+}
+
+.bottom-dock-btn.active {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.bottom-dock-btn.active svg {
+  color: #38bdf8;
+  transform: scale(1.1);
+}
+
+/* ── Radio Console Quick Action Switching ─────────────────────────── */
+.radio-quick-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.65rem;
+  width: 100%;
+  max-width: 480px;
+  margin-top: 0.5rem;
+}
+
+.btn-quick-switch {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: var(--radius-xs);
+  font-family: var(--font-brand);
+  font-size: 0.74rem;
+  font-weight: 900;
+  cursor: pointer;
+  letter-spacing: 0.03em;
+  transition: all 0.15s ease;
+  border: 1px solid var(--border-news);
+  color: #ffffff;
+}
+
+.btn-quick-switch.tv {
+  background: rgba(225, 0, 26, 0.16);
+  border-color: rgba(225, 0, 26, 0.45);
+  color: #fca5a5;
+}
+
+.btn-quick-switch.tv:hover {
+  background: var(--cnews-red);
+  color: #ffffff;
+}
+
+.btn-quick-switch.other {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: var(--border-news-light);
+  color: #e2e8f0;
+}
+
+.btn-quick-switch.other:hover {
+  background: rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+}
+
+.btn-quick-switch:active {
+  transform: scale(0.97);
+}
+
+@media (max-width: 480px) {
+  .radio-quick-actions {
+    grid-template-columns: 1fr;
+  }
 }

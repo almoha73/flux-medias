@@ -1,5 +1,6 @@
 import './style.css';
 import { App } from '@capacitor/app';
+import { StatusBar, Style } from '@capacitor/status-bar';
 
 // ── SVG Icons (Newsroom & Broadcast Vectors) ──────────────────────────────────
 const ICONS = {
@@ -142,16 +143,54 @@ function initBroadcastClock() {
   setInterval(update, 1000);
 }
 
-// ── Navigation Filters ───────────────────────────────────────────────────────
+// ── Navigation Filters (Top Chips & Mobile Bottom Dock) ──────────────────────
+function setMainFilter(filter) {
+  currentFilter = filter;
+  document.querySelectorAll('.nav-chip').forEach(c => {
+    c.classList.toggle('active', c.dataset.filter === filter);
+  });
+  document.querySelectorAll('.bottom-dock-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.filter === filter);
+  });
+  renderStations();
+}
+
 function setupFilters() {
   const chips = document.querySelectorAll('.nav-chip');
   chips.forEach(chip => {
     chip.addEventListener('click', () => {
-      chips.forEach(c => c.classList.remove('active'));
-      chip.classList.add('active');
-      currentFilter = chip.dataset.filter;
-      renderStations();
+      setMainFilter(chip.dataset.filter);
     });
+  });
+
+  // Mobile Bottom Dock Controls (Ergonomic thumb access)
+  document.getElementById('dock-btn-all')?.addEventListener('click', () => {
+    setMainFilter('all');
+  });
+
+  document.getElementById('dock-btn-tv')?.addEventListener('click', () => {
+    setMainFilter('tv');
+    const tvStream = streams.find(s => s.type === 'tv');
+    if (tvStream && activeId !== tvStream.id) {
+      selectStation(tvStream);
+    }
+  });
+
+  document.getElementById('dock-btn-radio')?.addEventListener('click', () => {
+    setMainFilter('radio');
+    const radioStream = streams.find(s => s.id === activeId && s.type === 'radio') || streams.find(s => s.type === 'radio');
+    if (radioStream && activeId !== radioStream.id) {
+      selectStation(radioStream);
+    }
+  });
+
+  document.getElementById('dock-btn-feed')?.addEventListener('click', () => {
+    const overlay = document.getElementById('news-drawer-overlay');
+    overlay?.classList.add('open');
+    renderDrawerNews();
+    try {
+      history.pushState({ drawer: true }, '');
+    } catch (e) {}
   });
 }
 
@@ -441,11 +480,33 @@ function renderRadioConsole(stream, playing) {
         <input type="range" class="fader-slider" id="fader-slider" min="0" max="1" step="0.05" value="${userVolume}">
         <span class="fader-value" id="fader-readout">${Math.round(userVolume * 100)}%</span>
       </div>
+
+      <!-- Ergonomic Switch Bar (Thumb accessible) -->
+      <div class="radio-quick-actions">
+        <button class="btn-quick-switch tv" id="btn-quick-tv">
+          ${ICONS.tv}
+          <span>BASCULER VERS CNEWS TV DIRECT</span>
+        </button>
+        <button class="btn-quick-switch other" id="btn-quick-other-station">
+          ${ICONS.radio}
+          <span>${stream.id === 2 ? 'ÉCOUTER EUROPE 1' : 'ÉCOUTER CNEWS RADIO'}</span>
+        </button>
+      </div>
     </div>
   `;
 
   document.getElementById('btn-radio-stop')?.addEventListener('click', () => stopBroadcast(true));
   document.getElementById('btn-radio-toggle')?.addEventListener('click', toggleRadioPlayback);
+
+  document.getElementById('btn-quick-tv')?.addEventListener('click', () => {
+    const tvStream = streams.find(s => s.type === 'tv');
+    if (tvStream) selectStation(tvStream);
+  });
+
+  document.getElementById('btn-quick-other-station')?.addEventListener('click', () => {
+    const otherRadio = streams.find(s => s.type === 'radio' && s.id !== stream.id);
+    if (otherRadio) selectStation(otherRadio);
+  });
 
   const slider = document.getElementById('fader-slider');
   const readout = document.getElementById('fader-readout');
@@ -893,7 +954,7 @@ function closeArticleModal() {
 function setupArticleModal() {
   const overlay = document.getElementById('article-modal-overlay');
   const backBtn = document.getElementById('btn-modal-back');
-  const closeMainBtn = document.getElementById('btn-modal-close-main');
+  const bottomBackBtn = document.getElementById('btn-modal-bottom-back');
 
   const closeAndBack = () => {
     closeArticleModal();
@@ -903,13 +964,24 @@ function setupArticleModal() {
   };
 
   backBtn?.addEventListener('click', closeAndBack);
-  closeMainBtn?.addEventListener('click', closeAndBack);
+  bottomBackBtn?.addEventListener('click', closeAndBack);
 
   overlay?.addEventListener('click', (e) => {
     if (e.target === overlay) {
       closeAndBack();
     }
   });
+}
+
+// ── Native StatusBar Management (Preventing OS Status Bar Overlap) ────────────
+async function initNativeStatusBar() {
+  try {
+    await StatusBar.setOverlaysWebView({ overlay: false });
+    await StatusBar.setBackgroundColor({ color: '#04060a' });
+    await StatusBar.setStyle({ style: Style.Dark });
+  } catch (e) {
+    // Non-native / web environment
+  }
 }
 
 // ── Android Back Button & Popstate Support ────────────────────────────────────
@@ -996,6 +1068,7 @@ function setupDrawer() {
 
 // ── Initialization ────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
+  initNativeStatusBar();
   initBroadcastClock();
   setupFilters();
   setupDrawer();
@@ -1008,4 +1081,5 @@ document.addEventListener('DOMContentLoaded', () => {
   // Auto-refresh news feeds every 3 minutes
   setInterval(loadAllNewsFeeds, 180000);
 });
+
 

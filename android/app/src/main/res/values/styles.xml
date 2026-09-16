@@ -12,7 +12,10 @@
     <style name="AppTheme.NoActionBar" parent="Theme.AppCompat.DayNight.NoActionBar">
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
-        <item name="android:background">@null</item>
+        <item name="android:background">#080c14</item>
+        <item name="android:fitsSystemWindows">true</item>
+        <item name="android:statusBarColor">#04060a</item>
+        <item name="android:navigationBarColor">#04060a</item>
     </style>
 
 

@@ -93,6 +93,41 @@
       </div>
     </main>
 
+    <!-- Mobile Ergonomic Bottom Navigation Dock -->
+    <nav class="mobile-bottom-dock" id="mobile-bottom-dock" aria-label="Navigation principale mobile">
+      <button class="bottom-dock-btn active" id="dock-btn-all" data-filter="all">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="7" height="7"></rect>
+          <rect x="14" y="3" width="7" height="7"></rect>
+          <rect x="14" y="14" width="7" height="7"></rect>
+          <rect x="3" y="14" width="7" height="7"></rect>
+        </svg>
+        <span>TOUT</span>
+      </button>
+      <button class="bottom-dock-btn" id="dock-btn-tv" data-filter="tv">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="4" width="20" height="13" rx="2"/>
+          <path d="M12 17v4M8 21h8"/>
+        </svg>
+        <span>DIRECT TV</span>
+      </button>
+      <button class="bottom-dock-btn" id="dock-btn-radio" data-filter="radio">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="2"/>
+          <path d="M16.24 7.76a6 6 0 0 1 0 8.49M7.76 7.76a6 6 0 0 0 0 8.49M20.49 3.51a12 12 0 0 1 0 16.98M3.51 3.51a12 12 0 0 0 0 16.98"/>
+        </svg>
+        <span>RADIOS</span>
+      </button>
+      <button class="bottom-dock-btn" id="dock-btn-feed">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 11a9 9 0 0 1 9 9"></path>
+          <path d="M4 4a16 16 0 0 1 16 16"></path>
+          <circle cx="5" cy="19" r="1"></circle>
+        </svg>
+        <span>DÉPÊCHES</span>
+      </button>
+    </nav>
+
     <!-- Professional Footer -->
     <footer class="news-footer">
       <div class="footer-left">
@@ -165,12 +200,16 @@
           <img id="modal-article-img" src="" alt="" style="width:100%;max-height:280px;object-fit:cover;display:block;" />
         </div>
         <p class="article-modal-text" id="modal-article-desc">Chargement des détails de la dépêche…</p>
+      </div>
 
-        <div class="article-modal-actions">
-          <button class="btn-article-close-main" id="btn-modal-close-main">
-            ← Revenir à l'application Flux Médias
-          </button>
-        </div>
+      <!-- Sticky Bottom Return Bar (Ergonomic Thumb Access) -->
+      <div class="article-modal-bottombar">
+        <button class="btn-modal-bottom-back" id="btn-modal-bottom-back" title="Revenir aux flux">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M19 12H5M12 19l-7-7 7-7"/>
+          </svg>
+          <span>RETOUR AUX FLUX & DIRECTS</span>
+        </button>
       </div>
     </div>
   </div>
