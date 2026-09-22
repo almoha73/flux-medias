@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite';
 
 export default defineConfig({
+  plugins: [],
   server: {
     proxy: {
       '/api/rss/cnews': {
