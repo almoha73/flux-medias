@@ -3,214 +3,83 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <meta name="description" content="Plateforme d'information en continu : CNews et Europe 1 en direct TV et radio, avec fil d'actualité RSS en direct" />
-  <title>CNEWS & EUROPE 1 · Le Direct & Fil Info RSS</title>
-  <!-- Newsroom Google Fonts: Montserrat (Headlines/Logos) & Inter (UI/Reading) -->
+  <meta name="theme-color" content="#07090d" />
+  <meta name="description" content="CNews et Europe 1 en direct, TV et radio, avec les dernières dépêches" />
+  <title>CNews & Europe 1 · Direct</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@800;900&display=swap" rel="stylesheet">
   <link rel="icon" type="image/png" href="/favicon.png" />
   <link rel="apple-touch-icon" href="/favicon.png" />
-  <link href="/src/style.css" rel="stylesheet" />
-  <!-- HLS.js streaming engine -->
   <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.15/dist/hls.min.js"></script>
 </head>
-<body class="newsroom-theme">
-  <!-- Top Newsroom Broadcast Bar -->
-  <div class="top-broadcast-bar">
-    <div class="top-bar-inner">
-      <div class="broadcast-time" id="broadcast-clock">
-        <span class="clock-calendar" id="clock-date">DIRECT</span>
-        <span class="clock-hour" id="clock-time">--:--:--</span>
-      </div>
-      <div class="broadcast-badge">
-        <span class="on-air-dot"></span>
-        <span class="on-air-text">ANTENNE EN DIRECT</span>
-      </div>
-    </div>
-  </div>
-
-  <div id="app" class="newsroom-shell">
-    <!-- Main Header Bar -->
-    <header class="news-header">
-      <div class="brand-group">
-        <div class="media-logos">
-          <!-- CNEWS Logo Badge -->
-          <div class="logo-cnews-badge" title="CNews">
-            <span class="cnews-box">C</span><span class="cnews-text">NEWS</span>
-          </div>
-          <span class="brand-divider">/</span>
-          <!-- EUROPE 1 Logo Badge -->
-          <div class="logo-europe1-badge" title="Europe 1">
-            <span class="europe1-text">europe <span>1</span></span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Quick Category Navigation -->
-      <nav class="nav-filters" aria-label="Filtres des chaînes">
-        <button class="nav-chip active" data-filter="all" id="btn-filter-all">TOUT</button>
-        <button class="nav-chip" data-filter="tv" id="btn-filter-tv">DIRECT TV</button>
-        <button class="nav-chip" data-filter="radio" id="btn-filter-radio">RADIOS</button>
-      </nav>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <h1 class="app-title">Flux Médias</h1>
     </header>
 
-    <!-- News Ticker (Fil Info CNews Style avec flux RSS en direct) -->
-    <div class="fil-info-banner">
-      <div class="fil-info-label">
-        <span class="fil-pulse"></span>
-        <span>FIL INFO</span>
-      </div>
-      <div class="fil-info-marquee">
-        <div class="marquee-content" id="rss-marquee">
-          <span>Chargement du fil d'actualité en direct…</span>
-        </div>
-      </div>
-      <button class="fil-info-action-btn" id="btn-open-feed" title="Ouvrir toutes les dépêches">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M4 11a9 9 0 0 1 9 9"></path>
-          <path d="M4 4a16 16 0 0 1 16 16"></path>
-          <circle cx="5" cy="19" r="1"></circle>
-        </svg>
-        <span>DÉPÊCHES</span>
-      </button>
-    </div>
+    <main class="content">
+      <!-- TV player (visible only while CNews TV is active) -->
+      <section class="tv-stage" id="tv-stage" hidden>
+        <div class="tv-frame" id="tv-frame"></div>
+      </section>
 
-    <!-- Channels Broadcast Selector -->
-    <section class="stations-section" aria-label="Sélection des antennes">
-      <div class="stations-grid" id="stream-grid">
-        <!-- Rendered by main.js -->
-      </div>
-    </section>
+      <section class="section" aria-labelledby="stations-title">
+        <h2 class="section-title" id="stations-title">En direct</h2>
+        <div class="stations" id="stations"></div>
+      </section>
 
-    <!-- Main Broadcast Console (Player) -->
-    <main class="broadcast-console-section">
-      <div class="console-frame" id="player-wrapper">
-        <div id="main-player-container" class="main-player-container">
-          <!-- Injected via JS (TV, Radio Console, or Standby) -->
+      <section class="section" aria-labelledby="news-title">
+        <div class="section-head">
+          <h2 class="section-title" id="news-title">Dépêches</h2>
+          <button class="icon-btn" id="news-refresh" type="button" aria-label="Actualiser les dépêches">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+          </button>
         </div>
-      </div>
+        <div class="segmented" id="news-tabs" role="tablist">
+          <button type="button" role="tab" class="active" data-source="all">Tout</button>
+          <button type="button" role="tab" data-source="cnews">CNews</button>
+          <button type="button" role="tab" data-source="europe1">Europe 1</button>
+        </div>
+        <div class="news-list" id="news-list">
+          <p class="news-empty">Chargement des dépêches…</p>
+        </div>
+      </section>
     </main>
 
-    <!-- Mobile Ergonomic Bottom Navigation Dock -->
-    <nav class="mobile-bottom-dock" id="mobile-bottom-dock" aria-label="Navigation principale mobile">
-      <button class="bottom-dock-btn active" id="dock-btn-all" data-filter="all">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="3" y="3" width="7" height="7"></rect>
-          <rect x="14" y="3" width="7" height="7"></rect>
-          <rect x="14" y="14" width="7" height="7"></rect>
-          <rect x="3" y="14" width="7" height="7"></rect>
-        </svg>
-        <span>TOUT</span>
+    <!-- Now playing bar: pause / resume / stop, always within thumb reach -->
+    <div class="now-playing" id="now-playing" hidden>
+      <div class="np-art" id="np-art"></div>
+      <div class="np-meta">
+        <span class="np-title" id="np-title"></span>
+        <span class="np-status" id="np-status"></span>
+      </div>
+      <button class="np-btn np-toggle" id="np-toggle" type="button" aria-label="Pause"></button>
+      <button class="np-btn np-stop" id="np-stop" type="button" aria-label="Arrêter">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="5" width="14" height="14" rx="2"/></svg>
       </button>
-      <button class="bottom-dock-btn" id="dock-btn-tv" data-filter="tv">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="2" y="4" width="20" height="13" rx="2"/>
-          <path d="M12 17v4M8 21h8"/>
-        </svg>
-        <span>DIRECT TV</span>
-      </button>
-      <button class="bottom-dock-btn" id="dock-btn-radio" data-filter="radio">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="2"/>
-          <path d="M16.24 7.76a6 6 0 0 1 0 8.49M7.76 7.76a6 6 0 0 0 0 8.49M20.49 3.51a12 12 0 0 1 0 16.98M3.51 3.51a12 12 0 0 0 0 16.98"/>
-        </svg>
-        <span>RADIOS</span>
-      </button>
-      <button class="bottom-dock-btn" id="dock-btn-feed">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M4 11a9 9 0 0 1 9 9"></path>
-          <path d="M4 4a16 16 0 0 1 16 16"></path>
-          <circle cx="5" cy="19" r="1"></circle>
-        </svg>
-        <span>FIL INFO</span>
-      </button>
-    </nav>
-
-    <!-- Professional Footer -->
-    <footer class="news-footer">
-      <div class="footer-left">
-        <span class="footer-dot"></span>
-        <span>CNEWS & EUROPE 1 · Le Direct en continu</span>
-      </div>
-      <div class="footer-right">
-        <span id="rss-sync-status">Dépêches synchronisées</span>
-      </div>
-    </footer>
-  </div>
-
-  <!-- Live News Drawer / Volet des Dépêches en direct -->
-  <div class="news-drawer-overlay" id="news-drawer-overlay" aria-hidden="true">
-    <div class="news-drawer-panel">
-      <div class="news-drawer-header">
-        <div class="drawer-title-group">
-          <span class="drawer-live-pill">DIRECT</span>
-          <h3>Dernières Dépêches</h3>
-        </div>
-        <div class="drawer-header-actions">
-          <button class="drawer-tool-btn" id="btn-refresh-rss" title="Rafraîchir les flux RSS">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
-            </svg>
-          </button>
-          <button class="drawer-tool-btn close" id="btn-close-drawer" title="Fermer le volet">✕</button>
-        </div>
-      </div>
-
-      <!-- Feed Filter Tabs -->
-      <div class="drawer-filter-bar">
-        <button class="feed-tab active" data-source="all">Toutes les dépêches</button>
-        <button class="feed-tab" data-source="cnews">CNews</button>
-        <button class="feed-tab" data-source="europe1">Europe 1</button>
-      </div>
-
-      <!-- Feed Items List -->
-      <div class="news-feed-scroll" id="news-feed-scroll">
-        <div class="feed-loading-state">
-          <div class="spinner-news" style="width: 28px; height: 28px;"></div>
-          <p>Récupération des dépêches CNews et Europe 1…</p>
-        </div>
-      </div>
     </div>
   </div>
 
-  <!-- In-App News Article Reader Modal -->
-  <div class="article-modal-overlay" id="article-modal-overlay" aria-hidden="true">
-    <div class="article-modal-container">
-      <div class="article-modal-topbar">
-        <button class="btn-modal-back" id="btn-modal-back" title="Revenir aux flux">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M19 12H5M12 19l-7-7 7-7"/>
-          </svg>
-          <span>RETOUR AUX FLUX</span>
-        </button>
-        <span class="modal-source-pill" id="modal-source-pill">CNEWS</span>
-      </div>
-
-      <div class="article-modal-body">
-        <div class="article-modal-meta">
-          <span class="modal-dot"></span>
-          <span id="modal-article-time">Il y a quelques instants</span>
-        </div>
-
-        <h2 class="article-modal-headline" id="modal-article-title">Titre de l'actualité</h2>
-        <div class="article-modal-divider"></div>
-        <div id="modal-article-img-box" style="display:none;width:100%;border-radius:6px;overflow:hidden;margin:0.5rem 0;background:#030712;">
-          <img id="modal-article-img" src="" alt="" style="width:100%;max-height:280px;object-fit:cover;display:block;" />
-        </div>
-        <p class="article-modal-text" id="modal-article-desc">Chargement des détails de la dépêche…</p>
-      </div>
-
-      <!-- Sticky Bottom Return Bar (Ergonomic Thumb Access) -->
-      <div class="article-modal-bottombar">
-        <button class="btn-modal-bottom-back" id="btn-modal-bottom-back" title="Revenir aux flux">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M19 12H5M12 19l-7-7 7-7"/>
-          </svg>
-          <span>RETOUR AUX FLUX & DIRECTS</span>
+  <!-- Article sheet -->
+  <div class="sheet-overlay" id="article-sheet" aria-hidden="true">
+    <article class="sheet" role="dialog" aria-modal="true" aria-labelledby="article-title">
+      <div class="sheet-head">
+        <span class="news-source" id="article-source"></span>
+        <span class="news-time" id="article-time"></span>
+        <button class="icon-btn sheet-close" id="article-close" type="button" aria-label="Fermer">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
         </button>
       </div>
-    </div>
+      <div class="sheet-body">
+        <img class="article-img" id="article-img" alt="" hidden />
+        <h3 class="article-title" id="article-title"></h3>
+        <div class="article-content" id="article-content"></div>
+        <p class="article-status" id="article-status" hidden></p>
+        <a class="article-link" id="article-link" href="#" target="_blank" rel="noopener">Voir sur le site</a>
+      </div>
+    </article>
   </div>
 
   <script type="module" src="/src/main.js"></script>

@@ -1,381 +1,241 @@
 import './style.css';
 import { App } from '@capacitor/app';
 import { StatusBar, Style } from '@capacitor/status-bar';
+import { Capacitor, CapacitorHttp } from '@capacitor/core';
 
-// ── SVG Icons (Newsroom & Broadcast Vectors) ──────────────────────────────────
+// ── Icons ─────────────────────────────────────────────────────────────────────
 const ICONS = {
-  tv: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-    <rect x="2" y="4" width="20" height="13" rx="2"/>
-    <path d="M12 17v4M8 21h8"/>
-  </svg>`,
-
-  radio: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-    <circle cx="12" cy="12" r="2"/>
-    <path d="M16.24 7.76a6 6 0 0 1 0 8.49M7.76 7.76a6 6 0 0 0 0 8.49M20.49 3.51a12 12 0 0 1 0 16.98M3.51 3.51a12 12 0 0 0 0 16.98"/>
-  </svg>`,
-
-  play: `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-    <path d="M6 4.5l14 7.5-14 7.5V4.5z"/>
-  </svg>`,
-
-  pause: `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-    <rect x="5" y="4" width="4.5" height="16" rx="1"/>
-    <rect x="14.5" y="4" width="4.5" height="16" rx="1"/>
-  </svg>`,
-
-  stop: `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-    <rect x="4" y="4" width="16" height="16" rx="2"/>
-  </svg>`,
-
-  fullscreen: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
-  </svg>`,
-
-  pip: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-    <rect x="2" y="4" width="20" height="14" rx="2"/>
-    <rect x="12" y="10" width="8" height="6" rx="1"/>
-  </svg>`,
-
-  refresh: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
-  </svg>`
+  play: `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.5l13 7.5-13 7.5z"/></svg>`,
+  pause: `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><rect x="5.5" y="4.5" width="4.5" height="15" rx="1"/><rect x="14" y="4.5" width="4.5" height="15" rx="1"/></svg>`,
+  eq: `<span class="eq" aria-hidden="true"><i></i><i></i><i></i><i></i></span>`,
+  spinner: `<span class="spinner" aria-hidden="true"></span>`,
 };
 
-// ── Official Station Logos SVG ────────────────────────────────────────────────
-const STATION_LOGOS = {
-  cnews: `
-    <div class="logo-embed-cnews">
-      <span class="cnews-box">C</span><span class="cnews-text">NEWS</span>
-    </div>
-  `,
-  cnewsRadio: `
-    <div class="logo-embed-cnews-radio">
-      <div class="logo-embed-cnews">
-        <span class="cnews-box">C</span><span class="cnews-text">NEWS</span>
-      </div>
-      <span class="radio-pill">RADIO</span>
-    </div>
-  `,
-  europe1: `
-    <div class="logo-embed-europe1">
-      europe<span>1</span>
-    </div>
-  `
-};
+// ── Stations ──────────────────────────────────────────────────────────────────
+const CANAL_BASE = 'https://hls-m015.live-cft.canalplus-cdn.net/live/disk/cnews-clair-hd/hls-ios-fhddvr-clair/';
 
-// ── Stream Catalog ────────────────────────────────────────────────────────────
-const CANAL_VIDEO = 'https://hls-m015.live-cft.canalplus-cdn.net/live/disk/cnews-clair-hd/hls-ios-fhddvr-clair/index.m3u8';
-const CANAL_AUDIO = 'https://hls-m015.live-cft.canalplus-cdn.net/live/disk/cnews-clair-hd/hls-ios-fhddvr-clair/cnews-clair-hd-mp4a_96000_fra=20000.m3u8';
-
-const streams = [
+const STATIONS = [
   {
-    id: 1,
-    title: 'CNews TV',
+    id: 'cnews-tv',
+    title: 'CNews',
+    subtitle: 'Télévision',
     type: 'tv',
-    theme: 'cnews',
-    logoHtml: STATION_LOGOS.cnews,
-    url: CANAL_VIDEO,
+    url: CANAL_BASE + 'index.m3u8',
+    // Audio-only rendition used when the app goes to the background
+    audioUrl: CANAL_BASE + 'cnews-clair-hd-mp4a_96000_fra=20000.m3u8',
+    logo: `<span class="mark-cnews"><b>C</b>NEWS</span>`,
   },
   {
-    id: 2,
+    id: 'cnews-radio',
     title: 'CNews Radio',
+    subtitle: 'Radio',
     type: 'radio',
-    theme: 'cnews',
-    logoHtml: STATION_LOGOS.cnewsRadio,
-    audioUrl: CANAL_AUDIO,
-    isHlsAudio: true,
+    url: CANAL_BASE + 'cnews-clair-hd-mp4a_96000_fra=20000.m3u8',
+    logo: `<span class="mark-cnews"><b>C</b>NEWS</span>`,
   },
   {
-    id: 3,
+    id: 'europe1',
     title: 'Europe 1',
+    subtitle: 'Radio',
     type: 'radio',
-    theme: 'europe1',
-    logoHtml: STATION_LOGOS.europe1,
-    audioUrl: 'https://stream.europe1.fr/europe1.mp3',
-    isHlsAudio: false,
+    url: 'https://stream.europe1.fr/europe1.mp3',
+    logo: `<span class="mark-e1">europe<b>1</b></span>`,
   },
 ];
 
-// ── Application State ─────────────────────────────────────────────────────────
-let activeId = null;
-let currentFilter = 'all';
-let drawerFilter = 'all';
+const STATUS_LABEL = {
+  loading: 'Connexion…',
+  playing: 'En direct',
+  paused: 'En pause',
+};
+
+// ── State ─────────────────────────────────────────────────────────────────────
+const bridge = window.AndroidBridge; // Native player (Android app only)
+const isAndroid = typeof bridge !== 'undefined';
+
+const state = {
+  station: null,   // active station
+  status: 'idle',  // idle | loading | playing | paused
+};
+let handoff = false; // TV audio temporarily handed to the native service (app in background)
 let videoHls = null;
-let audioHls = null;
 let webAudio = null;
-let isPlaying = false;
-let userVolume = parseFloat(localStorage.getItem('flux_volume') || '0.9');
-let vuMeterInterval = null;
-let allNewsArticles = [];
+let audioHls = null;
+let newsFilter = 'all';
+let articles = [];
 
-const isAndroid = typeof window.AndroidBridge !== 'undefined';
-const grid = document.getElementById('stream-grid');
-const container = document.getElementById('main-player-container');
+const $ = (id) => document.getElementById(id);
 
-// ── Real-time Broadcast Clock ─────────────────────────────────────────────────
-function initBroadcastClock() {
-  const dateEl = document.getElementById('clock-date');
-  const timeEl = document.getElementById('clock-time');
-
-  function update() {
-    const now = new Date();
-    if (dateEl) {
-      const options = { weekday: 'short', day: 'numeric', month: 'short' };
-      dateEl.textContent = now.toLocaleDateString('fr-FR', options).toUpperCase();
-    }
-    if (timeEl) {
-      timeEl.textContent = now.toLocaleTimeString('fr-FR');
-    }
-  }
-
-  update();
-  setInterval(update, 1000);
+// Scale the whole UI (rem units) with the phone's font size setting
+if (isAndroid && bridge.getFontScale) {
+  const scale = bridge.getFontScale();
+  if (scale > 0) document.documentElement.style.fontSize = `${16 * scale}px`;
 }
+const findStation = (id) => STATIONS.find(s => s.id === id) || null;
 
-// ── Navigation Filters (Top Chips & Mobile Bottom Dock) ──────────────────────
-function setMainFilter(filter) {
-  currentFilter = filter;
-  document.querySelectorAll('.nav-chip').forEach(c => {
-    c.classList.toggle('active', c.dataset.filter === filter);
-  });
-  document.querySelectorAll('.bottom-dock-btn').forEach(b => {
-    b.classList.toggle('active', b.dataset.filter === filter);
-  });
-  renderStations();
-}
+// ── Playback controller ───────────────────────────────────────────────────────
+function play(station) {
+  const previous = state.station;
+  teardownVideo();
+  stopWebAudio();
+  // Switching radio → radio reuses the native service; anything else stops it
+  if (isAndroid && previous?.type === 'radio' && station.type !== 'radio') bridge.stop();
 
-function setupFilters() {
-  const chips = document.querySelectorAll('.nav-chip');
-  chips.forEach(chip => {
-    chip.addEventListener('click', () => {
-      setMainFilter(chip.dataset.filter);
-    });
-  });
+  state.station = station;
+  setStatus('loading');
 
-  // Mobile Bottom Dock Controls (Ergonomic thumb access)
-  document.getElementById('dock-btn-all')?.addEventListener('click', () => {
-    setMainFilter('all');
-  });
-
-  document.getElementById('dock-btn-tv')?.addEventListener('click', () => {
-    setMainFilter('tv');
-    const tvStream = streams.find(s => s.type === 'tv');
-    if (tvStream && activeId !== tvStream.id) {
-      selectStation(tvStream);
-    }
-  });
-
-  document.getElementById('dock-btn-radio')?.addEventListener('click', () => {
-    setMainFilter('radio');
-    const radioStream = streams.find(s => s.id === activeId && s.type === 'radio') || streams.find(s => s.type === 'radio');
-    if (radioStream && activeId !== radioStream.id) {
-      selectStation(radioStream);
-    }
-  });
-
-  document.getElementById('dock-btn-feed')?.addEventListener('click', () => {
-    const overlay = document.getElementById('news-drawer-overlay');
-    overlay?.classList.add('open');
-    renderDrawerNews();
-    try {
-      history.pushState({ drawer: true }, '');
-    } catch (e) {}
-  });
-}
-
-// ── Render Station Tiles ──────────────────────────────────────────────────────
-function renderStations() {
-  grid.innerHTML = '';
-
-  const filtered = streams.filter(s => {
-    if (currentFilter === 'tv') return s.type === 'tv';
-    if (currentFilter === 'radio') return s.type === 'radio';
-    return true;
-  });
-
-  filtered.forEach(s => {
-    const tile = document.createElement('div');
-    const isActive = s.id === activeId;
-    tile.className = `station-tile${isActive ? ' active' : ''}`;
-    tile.dataset.id = s.id;
-    tile.dataset.theme = s.theme;
-    tile.setAttribute('aria-label', s.title);
-
-    tile.innerHTML = `
-      <div class="station-logo-box">
-        ${s.logoHtml}
-      </div>
-      <div class="station-live-pill">
-        <span class="badge-dot"></span>
-        <span>DIRECT</span>
-      </div>
-    `;
-
-    tile.addEventListener('click', () => selectStation(s));
-    tile.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        selectStation(s);
-      }
-    });
-
-    grid.appendChild(tile);
-  });
-}
-
-function updateStationTilesActiveState() {
-  document.querySelectorAll('.station-tile').forEach(tile => {
-    const isCurrent = parseInt(tile.dataset.id, 10) === activeId;
-    tile.classList.toggle('active', isCurrent);
-  });
-}
-
-// ── Select Station ────────────────────────────────────────────────────────────
-function selectStation(stream) {
-  if (stream.id === activeId) {
-    stopBroadcast(true);
-    return;
-  }
-
-  stopBroadcast(false);
-  activeId = stream.id;
-  isPlaying = true;
-  updateStationTilesActiveState();
-
-  if (stream.type === 'tv') {
-    playTV(stream);
+  if (station.type === 'tv') {
+    startVideo(station);
+  } else if (isAndroid) {
+    bridge.play(station.url, station.title, station.id);
   } else {
-    playRadio(stream);
+    startWebAudio(station);
   }
 }
 
-// ── CNews TV Live Playback ───────────────────────────────────────────────────
-function playTV(stream) {
-  stopVUMeter();
+function pause() {
+  const st = state.station;
+  if (!st || state.status === 'paused') return;
+  if (st.type === 'tv') {
+    const video = $('tv-video');
+    videoHls?.stopLoad();
+    video?.pause();
+  } else if (isAndroid) {
+    bridge.pause();
+  } else {
+    stopWebAudio();
+  }
+  setStatus('paused');
+}
 
-  container.innerHTML = `
-    <div class="cnews-tv-view">
-      <div class="tv-loader" id="tv-loading">
-        <div class="spinner-news"></div>
-        <p>Chargement du direct…</p>
-      </div>
+function resume() {
+  const st = state.station;
+  if (!st || state.status !== 'paused') return;
+  setStatus('loading');
+  if (st.type === 'tv') {
+    const video = $('tv-video');
+    if (!videoHls || !video) return startVideo(st);
+    // Back to the live edge
+    videoHls.startLoad(-1);
+    if (videoHls.liveSyncPosition) video.currentTime = videoHls.liveSyncPosition;
+    video.play().catch(() => {});
+  } else if (isAndroid) {
+    bridge.resume();
+  } else {
+    startWebAudio(st);
+  }
+}
 
-      <div class="tv-onair-bar">
-        <div class="tv-onair-bug">
-          <div class="bug-cnews">CNEWS</div>
-          <div class="bug-direct"><span class="bug-dot"></span>DIRECT</div>
-        </div>
+function togglePause() {
+  state.status === 'paused' ? resume() : pause();
+}
 
-        <div class="tv-toolbar-actions">
-          <button class="tv-tool-btn" id="tv-refresh-btn" title="Actualiser le direct">
-            ${ICONS.refresh}
-          </button>
-          <button class="tv-tool-btn" id="tv-pip-btn" title="Picture in Picture">
-            ${ICONS.pip}
-          </button>
-          <button class="tv-tool-btn" id="tv-fs-btn" title="Plein écran">
-            ${ICONS.fullscreen}
-          </button>
-        </div>
-      </div>
+function stop() {
+  teardownVideo();
+  stopWebAudio();
+  if (isAndroid) bridge.stop();
+  state.station = null;
+  setStatus('idle');
+}
 
-      <video id="hls-video" playsinline autoplay controls></video>
-    </div>
+function setStatus(status) {
+  state.status = status;
+  if (isAndroid) {
+    const st = state.station;
+    const videoPlaying = st?.type === 'tv' && !handoff && (status === 'playing' || status === 'loading');
+    bridge.setVideoActive(videoPlaying, st?.audioUrl || '', st?.title || '', st?.id || '');
+  }
+  render();
+  updateWebMediaSession();
+}
+
+// ── TV (HLS video in the page) ────────────────────────────────────────────────
+function startVideo(station) {
+  teardownVideo();
+  const frame = $('tv-frame');
+  frame.innerHTML = `
+    <video id="tv-video" playsinline autoplay controls></video>
+    <div class="tv-loader" id="tv-loader">${ICONS.spinner}</div>
   `;
+  $('tv-stage').hidden = false;
 
-  const video = document.getElementById('hls-video');
-  const loader = document.getElementById('tv-loading');
-  video.volume = userVolume;
+  const video = $('tv-video');
+  const loader = $('tv-loader');
+  const mine = () => $('tv-video') === video && state.station === station && !handoff;
 
-  document.getElementById('tv-refresh-btn')?.addEventListener('click', () => {
-    if (activeId === stream.id) playTV(stream);
+  video.addEventListener('playing', () => {
+    loader.hidden = true;
+    if (mine()) setStatus('playing');
+  });
+  video.addEventListener('waiting', () => {
+    if (mine() && state.status === 'playing') setStatus('loading');
+  });
+  // Pause / play from the native video controls
+  video.addEventListener('pause', () => {
+    if (mine() && state.status !== 'paused') setStatus('paused');
+  });
+  video.addEventListener('play', () => {
+    if (mine() && state.status === 'paused') resume();
   });
 
-  document.getElementById('tv-pip-btn')?.addEventListener('click', async () => {
-    try {
-      if (document.pictureInPictureElement) {
-        await document.exitPictureInPicture();
-      } else if (video?.requestPictureInPicture) {
-        await video.requestPictureInPicture();
-      }
-    } catch (e) {
-      console.warn('PiP non supporté:', e);
-    }
-  });
-
-  document.getElementById('tv-fs-btn')?.addEventListener('click', () => {
-    const frame = document.getElementById('player-wrapper');
-    if (document.fullscreenElement) {
-      document.exitFullscreen?.();
-    } else {
-      (frame || video).requestFullscreen?.();
-    }
-  });
-
-  if (window.Hls && Hls.isSupported()) {
-    videoHls = new Hls({ maxBufferLength: 12, enableWorker: true, lowLatencyMode: true });
-    videoHls.loadSource(stream.url);
+  if (window.Hls?.isSupported()) {
+    videoHls = new Hls({ maxBufferLength: 12, lowLatencyMode: true });
+    videoHls.loadSource(station.url);
     videoHls.attachMedia(video);
-
-    videoHls.on(Hls.Events.SUBTITLE_TRACKS_UPDATED, () => {
-      videoHls.subtitleTrack = -1;
-    });
-
-    videoHls.on(Hls.Events.MANIFEST_PARSED, () => {
-      if (loader) loader.style.display = 'none';
-      video.play().catch(() => {});
-    });
-
+    videoHls.on(Hls.Events.SUBTITLE_TRACKS_UPDATED, () => { videoHls.subtitleTrack = -1; });
+    videoHls.on(Hls.Events.MANIFEST_PARSED, () => video.play().catch(() => {}));
     videoHls.on(Hls.Events.ERROR, (_, data) => {
-      if (data.fatal && activeId === stream.id) {
-        setTimeout(() => { if (activeId === stream.id) playTV(stream); }, 3000);
-      }
+      if (!data.fatal) return;
+      setStatus('loading');
+      setTimeout(() => {
+        if (mine() && state.status !== 'paused') startVideo(station);
+      }, 3000);
     });
   } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-    video.src = stream.url;
-    video.addEventListener('loadedmetadata', () => {
-      if (loader) loader.style.display = 'none';
-      video.play().catch(() => {});
-    });
+    video.src = station.url;
   } else {
-    if (loader) loader.innerHTML = `<p style="color:#ef4444;">Format non supporté.</p>`;
+    loader.innerHTML = '<p>Format vidéo non supporté.</p>';
   }
-
-  video.addEventListener('volumechange', () => {
-    userVolume = video.volume;
-    localStorage.setItem('flux_volume', userVolume.toString());
-  });
 }
 
-// ── Radio Broadcast Studio Console & Stereo VU-Meter ──────────────────────────
-function playRadio(stream) {
-  isPlaying = true;
-
-  if (isAndroid && window.AndroidBridge?.startRadio) {
-    window.AndroidBridge.startRadio(stream.audioUrl, stream.title);
-  } else {
-    setupWebAudio(stream);
+function teardownVideo() {
+  if (videoHls) {
+    videoHls.destroy();
+    videoHls = null;
   }
-
-  renderRadioConsole(stream, true);
-  startVUMeter();
+  const video = $('tv-video');
+  if (video) {
+    video.pause();
+    video.removeAttribute('src');
+    video.load();
+  }
+  $('tv-frame').innerHTML = '';
+  $('tv-stage').hidden = true;
 }
 
-function setupWebAudio(stream) {
+// ── Radio in the browser (web version only) ───────────────────────────────────
+function startWebAudio(station) {
   stopWebAudio();
-  webAudio = new Audio();
-  webAudio.volume = userVolume;
+  const audio = new Audio();
+  webAudio = audio;
+  const mine = () => webAudio === audio && state.station === station;
 
-  if (stream.isHlsAudio && window.Hls && Hls.isSupported()) {
+  audio.addEventListener('playing', () => mine() && setStatus('playing'));
+  audio.addEventListener('waiting', () => mine() && setStatus('loading'));
+  audio.addEventListener('error', () => {
+    if (!mine()) return;
+    setStatus('loading');
+    setTimeout(() => mine() && startWebAudio(station), 3000);
+  });
+
+  if (station.url.includes('.m3u8') && window.Hls?.isSupported()) {
     audioHls = new Hls({ lowLatencyMode: true });
-    audioHls.loadSource(stream.audioUrl);
-    audioHls.attachMedia(webAudio);
-    audioHls.on(Hls.Events.MANIFEST_PARSED, () => {
-      webAudio.play().catch(() => {});
-    });
+    audioHls.loadSource(station.url);
+    audioHls.attachMedia(audio);
+    audioHls.on(Hls.Events.MANIFEST_PARSED, () => audio.play().catch(() => {}));
   } else {
-    webAudio.src = stream.audioUrl;
-    webAudio.play().catch(e => console.warn('Audio play notice:', e));
+    audio.src = station.url;
+    audio.play().catch(() => {});
   }
 }
 
@@ -386,432 +246,280 @@ function stopWebAudio() {
   }
   if (webAudio) {
     webAudio.pause();
-    webAudio.src = '';
+    webAudio.removeAttribute('src');
+    webAudio.load();
     webAudio = null;
   }
 }
 
-function renderRadioConsole(stream, playing) {
-  const isCnews = stream.theme === 'cnews';
-  const emblemClass = isCnews ? 'cnews-radio-theme' : 'europe1-theme';
-  const emblemContent = isCnews ? STATION_LOGOS.cnewsRadio : STATION_LOGOS.europe1;
-
-  container.innerHTML = `
-    <div class="radio-player-view ${playing ? 'live' : ''}" id="radio-console">
-      <div class="radio-live-header">
-        <span class="radio-live-pill ${isCnews ? 'cnews' : 'europe1'}">
-          <span class="live-dot-pulse"></span>
-          <span>DIRECT AUDIO</span>
-        </span>
-      </div>
-
-      <div class="radio-artwork-container">
-        <div class="radio-artwork-glow ${emblemClass}"></div>
-        <div class="radio-artwork-disc ${emblemClass}">
-          ${emblemContent}
-        </div>
-      </div>
-
-      <div class="radio-meta-info">
-        <h2 class="radio-title">${stream.title}</h2>
-        <span class="radio-status-text">${playing ? 'En cours de diffusion' : 'En pause'}</span>
-      </div>
-
-      <!-- Equalizer Animated Sound Wave -->
-      <div class="sound-wave-equalizer" aria-label="Visualiseur audio">
-        <span class="sound-bar bar-1"></span>
-        <span class="sound-bar bar-2"></span>
-        <span class="sound-bar bar-3"></span>
-        <span class="sound-bar bar-4"></span>
-        <span class="sound-bar bar-5"></span>
-        <span class="sound-bar bar-6"></span>
-        <span class="sound-bar bar-7"></span>
-        <span class="sound-bar bar-8"></span>
-      </div>
-
-      <div class="radio-main-controls">
-        <button class="btn-radio-playpause ${playing ? 'playing' : 'paused'}" id="btn-radio-toggle" aria-label="${playing ? 'Mettre en pause' : 'Écouter'}">
-          ${playing ? ICONS.pause : ICONS.play}
-        </button>
-      </div>
-
-      <div class="radio-bottom-bar">
-        <div class="radio-volume-control">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
-            <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
-          </svg>
-          <input type="range" class="fader-slider" id="fader-slider" min="0" max="1" step="0.05" value="${userVolume}" aria-label="Volume">
-        </div>
-
-        <button class="btn-switch-direct-tv" id="btn-quick-tv">
-          ${ICONS.tv}
-          <span>DIRECT TV</span>
-        </button>
-      </div>
-    </div>
-  `;
-
-  document.getElementById('btn-radio-toggle')?.addEventListener('click', toggleRadioPlayback);
-  document.getElementById('btn-quick-tv')?.addEventListener('click', () => {
-    const tvStream = streams.find(s => s.type === 'tv');
-    if (tvStream) selectStation(tvStream);
-  });
-
-  const slider = document.getElementById('fader-slider');
-  slider?.addEventListener('input', (e) => {
-    userVolume = parseFloat(e.target.value);
-    localStorage.setItem('flux_volume', userVolume.toString());
-    if (webAudio) webAudio.volume = userVolume;
-  });
+function updateWebMediaSession() {
+  if (isAndroid || !('mediaSession' in navigator)) return;
+  const st = state.station;
+  if (!st) {
+    navigator.mediaSession.metadata = null;
+    navigator.mediaSession.playbackState = 'none';
+    return;
+  }
+  navigator.mediaSession.metadata = new MediaMetadata({ title: st.title, artist: 'En direct' });
+  navigator.mediaSession.playbackState = state.status === 'paused' ? 'paused' : 'playing';
 }
 
-function toggleRadioPlayback() {
-  const stream = streams.find(s => s.id === activeId);
-  if (!stream) return;
+// ── Native (Android) callbacks ────────────────────────────────────────────────
+// Service state changed (notification, lock screen, headset, audio focus…)
+window.onNativeState = (status, stationId) => {
+  const st = state.station;
 
-  isPlaying = !isPlaying;
-
-  if (isAndroid && window.AndroidBridge) {
-    isPlaying
-      ? window.AndroidBridge.startRadio(stream.audioUrl, stream.title)
-      : window.AndroidBridge.stopStream();
-  } else if (webAudio) {
-    if (isPlaying) webAudio.play().catch(() => {});
-    else webAudio.pause();
+  // App reopened while the service was already playing: adopt its state
+  if (!st) {
+    const native = findStation(stationId);
+    if (!native || status === 'idle') return;
+    if (native.type === 'tv') {
+      state.station = native;
+      handoff = true;
+      window.onNativeReturn(status);
+    } else {
+      state.station = native;
+      setStatus(status);
+    }
+    return;
   }
 
-  const consoleView = document.getElementById('radio-console');
-  const toggleBtn = document.getElementById('btn-radio-toggle');
-  const statusText = document.querySelector('.radio-status-text');
-
-  if (consoleView) consoleView.classList.toggle('live', isPlaying);
-  if (statusText) statusText.textContent = isPlaying ? 'En cours de diffusion' : 'En pause';
-  if (toggleBtn) {
-    toggleBtn.className = `btn-radio-playpause ${isPlaying ? 'playing' : 'paused'}`;
-    toggleBtn.innerHTML = isPlaying ? ICONS.pause : ICONS.play;
+  if (st.type !== 'radio') return; // TV is driven by the <video> element
+  if (stationId === st.id) {
+    if (status === 'idle') stop();
+    else if (status !== state.status) setStatus(status);
+  } else if (status === 'idle' && stationId === '') {
+    stop();
   }
-}
+};
 
-function startVUMeter() {
-  // Géré via animations CSS GPU natives pour un affichage fluide et économe
-}
-
-function stopVUMeter() {
-  // Géré via suppression de la classe .live
-}
-
-// ── Stop & Reset ──────────────────────────────────────────────────────────────
-window.stopBroadcast = function(resetUI = true) {
-  stopVUMeter();
-
+// App going to the background while the TV plays: the native service takes over the sound
+window.onNativeHandoff = () => {
+  if (state.station?.type !== 'tv') return;
+  handoff = true;
+  if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
   if (videoHls) {
     videoHls.destroy();
     videoHls = null;
   }
-  const vid = document.getElementById('hls-video');
-  if (vid) {
-    vid.pause();
-    vid.src = '';
-  }
+  $('tv-video')?.pause();
+};
 
-  stopWebAudio();
+// Back in the foreground: resume the video where the background audio left off
+window.onNativeReturn = (nativeStatus) => {
+  if (!handoff) return;
+  handoff = false;
+  const st = state.station;
+  bridge.stop();
+  if (st?.type !== 'tv') return;
 
-  if (isAndroid && window.AndroidBridge?.stopStream) {
-    window.AndroidBridge.stopStream();
-  }
-
-  isPlaying = false;
-
-  if (resetUI) {
-    activeId = null;
-    updateStationTilesActiveState();
-    renderStandby();
+  if (nativeStatus === 'idle') {
+    stop(); // stopped from the notification
+  } else if (nativeStatus === 'paused') {
+    teardownVideo();
+    $('tv-stage').hidden = false;
+    $('tv-frame').innerHTML = `<button class="tv-resume" type="button">${ICONS.play}<span>Reprendre le direct</span></button>`;
+    $('tv-frame').querySelector('button').addEventListener('click', resume);
+    setStatus('paused');
+  } else {
+    startVideo(st);
+    setStatus('loading');
   }
 };
 
-window.stopCurrent = window.stopBroadcast;
-window.goHome = window.stopBroadcast;
+// ── Rendering ─────────────────────────────────────────────────────────────────
+function stationIndicator(station) {
+  if (state.station !== station) return ICONS.play;
+  if (state.status === 'loading') return ICONS.spinner;
+  if (state.status === 'paused') return ICONS.pause;
+  return ICONS.eq;
+}
 
-// ── Standby / Ready Screen ────────────────────────────────────────────────────
-function renderStandby() {
-  stopVUMeter();
+function renderStations() {
+  const list = $('stations');
+  if (!list.children.length) {
+    list.innerHTML = STATIONS.map(s => `
+      <button class="station" type="button" data-id="${s.id}" data-brand="${s.id === 'europe1' ? 'e1' : 'cnews'}">
+        <span class="station-logo">${s.logo}</span>
+        <span class="station-meta">
+          <span class="station-name">${s.subtitle}</span>
+          <span class="station-sub">${s.subtitle}</span>
+        </span>
+        <span class="station-state"></span>
+      </button>
+    `).join('');
+    list.querySelectorAll('.station').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const s = findStation(btn.dataset.id);
+        if (state.station === s) togglePause();
+        else play(s);
+      });
+    });
+  }
 
-  container.innerHTML = `
-    <div class="cnews-hero-standby">
-      <div class="hero-live-badge">
-        <span class="hero-pulse-dot"></span>
-        <span>LE DIRECT</span>
-      </div>
-
-      <div class="hero-brand-card">
-        <div class="hero-cnews-logo">
-          <span class="cnews-box-large">C</span><span class="cnews-text-large">NEWS</span>
-        </div>
-      </div>
-
-      <div class="hero-action-buttons">
-        <button class="btn-hero-play" id="quick-btn-cnews">
-          <span class="btn-play-triangle">${ICONS.play}</span>
-          <span>REGARDER LE DIRECT CNEWS</span>
-        </button>
-        <div class="hero-sub-actions">
-          <button class="btn-hero-radio" id="quick-btn-cnews-radio">
-            ${ICONS.radio}
-            <span>CNews Radio</span>
-          </button>
-          <button class="btn-hero-radio europe1" id="quick-btn-europe1">
-            ${ICONS.radio}
-            <span>Europe 1</span>
-          </button>
-        </div>
-      </div>
-    </div>
-  `;
-
-  document.getElementById('quick-btn-cnews')?.addEventListener('click', () => {
-    const s = streams.find(st => st.id === 1);
-    if (s) selectStation(s);
-  });
-
-  document.getElementById('quick-btn-cnews-radio')?.addEventListener('click', () => {
-    const s = streams.find(st => st.id === 2);
-    if (s) selectStation(s);
-  });
-
-  document.getElementById('quick-btn-europe1')?.addEventListener('click', () => {
-    const s = streams.find(st => st.id === 3);
-    if (s) selectStation(s);
+  list.querySelectorAll('.station').forEach(btn => {
+    const s = findStation(btn.dataset.id);
+    const active = state.station === s;
+    btn.classList.toggle('active', active);
+    btn.querySelector('.station-sub').textContent = active
+      ? STATUS_LABEL[state.status] || ''
+      : (s.type === 'tv' ? 'Regarder' : 'Écouter');
+    btn.querySelector('.station-state').innerHTML = stationIndicator(s);
+    btn.setAttribute('aria-label', active
+      ? `${s.title}, ${STATUS_LABEL[state.status]}. Toucher pour ${state.status === 'paused' ? 'reprendre' : 'mettre en pause'}`
+      : `Écouter ${s.title}`);
   });
 }
 
-// ── Live RSS News Feeds (CNews & Europe 1) ────────────────────────────────────
-async function fetchRSS(localProxyUrl, directRssUrl, sourceName) {
-  // 1. Essai via le proxy local Vite
-  try {
-    const res = await fetch(localProxyUrl);
-    if (res.ok) {
-      const text = await res.text();
-      const parser = new DOMParser();
-      const xml = parser.parseFromString(text, 'text/xml');
-      const items = xml.querySelectorAll('item');
-      const results = [];
+function renderNowPlaying() {
+  const bar = $('now-playing');
+  const st = state.station;
+  bar.hidden = !st;
+  document.body.classList.toggle('has-player', !!st);
+  if (!st) return;
 
-      items.forEach(item => {
-        const title = item.querySelector('title')?.textContent?.trim() || '';
-        const link = item.querySelector('link')?.textContent?.trim() || '';
-        const pubDateRaw = item.querySelector('pubDate')?.textContent?.trim() || '';
-        const pubDate = pubDateRaw ? new Date(pubDateRaw) : new Date();
-        let description = item.querySelector('description')?.textContent?.trim() || '';
+  $('np-art').innerHTML = st.logo;
+  $('np-art').dataset.brand = st.id === 'europe1' ? 'e1' : 'cnews';
+  $('np-title').textContent = st.subtitle;
+  $('np-status').textContent = STATUS_LABEL[state.status] || '';
+  $('np-status').dataset.status = state.status;
 
-        // Extract image enclosure if available
-        let image = '';
-        const imgEnclosure = item.querySelector('enclosure[type^="image"]');
-        if (imgEnclosure && imgEnclosure.getAttribute('url')) {
-          image = imgEnclosure.getAttribute('url');
-        } else {
-          const mediaContent = item.querySelector('media\\:content, content');
-          if (mediaContent && mediaContent.getAttribute('url')) {
-            image = mediaContent.getAttribute('url');
-          }
-        }
+  const paused = state.status === 'paused';
+  const toggle = $('np-toggle');
+  toggle.innerHTML = paused ? ICONS.play : ICONS.pause;
+  toggle.setAttribute('aria-label', paused ? 'Reprendre' : 'Pause');
+}
 
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = description;
-        description = tempDiv.textContent || tempDiv.innerText || '';
+function render() {
+  renderStations();
+  renderNowPlaying();
+}
 
-        if (title) {
-          results.push({ title, link, pubDate, description, source: sourceName, image });
-        }
-      });
+// ── News (RSS) ────────────────────────────────────────────────────────────────
+const isNative = Capacitor.isNativePlatform();
+const SITES = {
+  cnews: 'https://www.cnews.fr',
+  europe1: 'https://www.europe1.fr',
+};
 
-      if (results.length > 0) return results;
-    }
-  } catch (e) {
-    // Proxy local non disponible (ex: APK standalone)
+function htmlToText(html) {
+  const div = document.createElement('div');
+  div.innerHTML = html || '';
+  return (div.textContent || '').trim();
+}
+
+/**
+ * Downloads a page from one of the news sites.
+ * App: native HTTP (no CORS). Browser: local Vite proxy /api/site/<source>/<path>.
+ */
+async function fetchSite(source, url) {
+  if (isNative) {
+    // Browser user agent: the sites' bot protection rejects the default HTTP client one
+    const res = await CapacitorHttp.get({ url, responseType: 'text', headers: { 'User-Agent': navigator.userAgent } });
+    if (res.status < 200 || res.status >= 300) throw new Error(`HTTP ${res.status}`);
+    return typeof res.data === 'string' ? res.data : String(res.data);
   }
+  const path = url.replace(SITES[source], '');
+  const res = await fetch(`/api/site/${source}${path}`);
+  const type = res.headers.get('content-type') || '';
+  if (!res.ok || type.includes('text/html') && path.endsWith('.xml')) throw new Error(`HTTP ${res.status}`);
+  return res.text();
+}
 
-  // 2. Fallback pour APK Android / standalone sans proxy local
+function parseRSS(xmlText, source) {
+  const xml = new DOMParser().parseFromString(xmlText, 'text/xml');
+  return [...xml.querySelectorAll('item')].map(item => {
+    const text = (sel) => item.querySelector(sel)?.textContent?.trim() || '';
+    const media = item.querySelector('enclosure[type^="image"]') || item.getElementsByTagName('media:content')[0];
+    return {
+      title: text('title'),
+      link: text('link').split('?')[0],
+      pubDate: new Date(text('pubDate') || Date.now()),
+      description: htmlToText(text('description')),
+      image: media?.getAttribute('url') || '',
+      source,
+    };
+  }).filter(a => a.title);
+}
+
+async function fetchRSS(source) {
+  const rssUrl = `${SITES[source]}/rss.xml`;
   try {
-    const fallbackUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(directRssUrl)}`;
-    const res = await fetch(fallbackUrl);
+    const items = parseRSS(await fetchSite(source, rssUrl), source);
+    if (items.length) return items;
+  } catch (e) { /* static hosting without proxy: use the gateway below */ }
+
+  // Fallback: public RSS → JSON gateway
+  try {
+    const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rssUrl)}`);
     if (res.ok) {
       const data = await res.json();
       if (data.status === 'ok' && Array.isArray(data.items)) {
-        return data.items.map(item => {
-          const tempDiv = document.createElement('div');
-          tempDiv.innerHTML = item.description || '';
-          const description = tempDiv.textContent || tempDiv.innerText || '';
-          const image = item.thumbnail || (item.enclosure && item.enclosure.link) || '';
-
-          return {
-            title: item.title || '',
-            link: item.link || '',
-            pubDate: item.pubDate ? new Date(item.pubDate) : new Date(),
-            description: description,
-            source: sourceName,
-            image: image
-          };
-        });
+        return data.items.map(item => ({
+          title: item.title || '',
+          link: (item.link || '').split('?')[0],
+          pubDate: item.pubDate ? new Date(item.pubDate.replace(' ', 'T') + 'Z') : new Date(),
+          description: htmlToText(item.description),
+          image: item.thumbnail || item.enclosure?.link || '',
+          source,
+        })).filter(a => a.title);
       }
     }
-  } catch (err) {
-    console.warn(`Fallback RSS échoué pour ${sourceName}:`, err);
+  } catch (e) {
+    console.warn(`Flux RSS indisponible (${source})`, e);
   }
-
   return [];
 }
 
-async function loadAllNewsFeeds() {
-  const syncStatus = document.getElementById('rss-sync-status');
-  if (syncStatus) syncStatus.textContent = 'Actualisation des flux RSS…';
-
-  const [cnewsItems, europe1Items] = await Promise.all([
-    fetchRSS('/api/rss/cnews', 'https://www.cnews.fr/rss.xml', 'cnews'),
-    fetchRSS('/api/rss/europe1', 'https://www.europe1.fr/rss.xml', 'europe1')
+async function loadNews() {
+  const refresh = $('news-refresh');
+  refresh.classList.add('spinning');
+  const [cnews, europe1] = await Promise.all([
+    fetchRSS('cnews'),
+    fetchRSS('europe1'),
   ]);
-
-  // Combine and sort by date descending
-  let combined = [...cnewsItems, ...europe1Items];
-
-  // If both failed or empty (e.g. offline fallback), provide recent editorial dispatches
-  if (combined.length === 0) {
-    combined = [
-      {
-        title: "CNEWS en direct 24h/24 : retrouvez tous les débats et l'actualité politique",
-        link: "https://www.cnews.fr",
-        pubDate: new Date(),
-        description: "Suivez l'information en continu en France et à l'international depuis le studio broadcast.",
-        source: "cnews"
-      },
-      {
-        title: "EUROPE 1 en direct : interviews, libre antenne et grands reportages",
-        link: "https://www.europe1.fr",
-        pubDate: new Date(),
-        description: "Écoutez les rendez-vous d'actualité et d'analyse en direct de l'antenne radio.",
-        source: "europe1"
-      }
-    ];
-  } else {
-    combined.sort((a, b) => b.pubDate - a.pubDate);
-  }
-
-  allNewsArticles = combined;
-  updateMarquee(combined);
-  renderDrawerNews();
-
-  if (syncStatus) {
-    const timeStr = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-    syncStatus.textContent = `Dépêches synchronisées (${timeStr})`;
-  }
+  refresh.classList.remove('spinning');
+  const merged = [...cnews, ...europe1].sort((a, b) => b.pubDate - a.pubDate);
+  // Keep the previous list if the network failed this time
+  if (merged.length || !articles.length) articles = merged;
+  renderNews();
 }
 
-function updateMarquee(articles) {
-  const marquee = document.getElementById('rss-marquee');
-  if (!marquee) return;
+function renderNews() {
+  const list = $('news-list');
+  const items = articles.filter(a => newsFilter === 'all' || a.source === newsFilter);
 
-  const topArticles = articles.slice(0, 15);
-  const itemsHtml = topArticles.map((a, idx) => `
-    <button class="ticker-item" type="button" data-ticker-idx="${idx}">
-      <span class="ticker-source ${a.source}">${a.source === 'cnews' ? 'CNEWS' : 'EUROPE 1'}</span>
-      <span>${escapeHtml(a.title)}</span>
-    </button>
-    <span class="ticker-sep">•</span>
-  `).join('');
-
-  // Duplicate for smooth seamless loop
-  marquee.innerHTML = itemsHtml + itemsHtml;
-
-  // In-app click handler (no external navigation)
-  marquee.querySelectorAll('.ticker-item').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      const idx = parseInt(btn.dataset.tickerIdx, 10);
-      const article = topArticles[idx];
-      if (article) {
-        openArticleModal(article);
-      }
-    });
-  });
-
-  // Régler une vitesse de lecture calme et confortable (~50px/seconde)
-  requestAnimationFrame(() => {
-    const halfWidth = marquee.scrollWidth / 2;
-    const speed = 50; // pixels par seconde
-    const duration = Math.max(140, Math.round(halfWidth / speed));
-    marquee.style.animationDuration = `${duration}s`;
-  });
-}
-
-function renderDrawerNews() {
-  const containerEl = document.getElementById('news-feed-scroll');
-  if (!containerEl) return;
-
-  const filtered = allNewsArticles.filter(a => {
-    if (drawerFilter === 'cnews') return a.source === 'cnews';
-    if (drawerFilter === 'europe1') return a.source === 'europe1';
-    return true;
-  });
-
-  if (filtered.length === 0) {
-    containerEl.innerHTML = `
-      <div class="feed-loading-state">
-        <p>Aucune dépêche trouvée pour cette source.</p>
-      </div>
-    `;
+  if (!items.length) {
+    list.innerHTML = `<p class="news-empty">Aucune dépêche disponible pour le moment.</p>`;
     return;
   }
 
-  containerEl.innerHTML = filtered.map((item, idx) => {
-    const timeAgo = formatTimeAgo(item.pubDate);
-    const sourceLabel = item.source === 'cnews' ? 'CNEWS' : 'EUROPE 1';
+  list.innerHTML = items.map((a, i) => `
+    <button class="news-item" type="button" data-idx="${i}">
+      <span class="news-text">
+        <span class="news-top">
+          <span class="news-source" data-source="${a.source}">${a.source === 'cnews' ? 'CNews' : 'Europe 1'}</span>
+          <span class="news-time">${formatTimeAgo(a.pubDate)}</span>
+        </span>
+        <span class="news-title">${escapeHtml(a.title)}</span>
+      </span>
+      ${a.image ? `<img class="news-thumb" src="${escapeHtml(a.image)}" alt="" loading="lazy" onerror="this.remove()" />` : ''}
+    </button>
+  `).join('');
 
-    return `
-      <article class="feed-item-card" data-feed-idx="${idx}" role="button" tabindex="0">
-        <div class="feed-item-top">
-          <span class="feed-source-tag ${item.source}">${sourceLabel}</span>
-          <span class="feed-time">${timeAgo}</span>
-        </div>
-        <div class="feed-item-title">
-          ${escapeHtml(item.title)}
-        </div>
-        ${item.description ? `<p class="feed-item-snippet">${escapeHtml(item.description)}</p>` : ''}
-        <button class="feed-item-link" type="button">
-          Lire la dépêche en direct →
-        </button>
-      </article>
-    `;
-  }).join('');
-
-  containerEl.querySelectorAll('.feed-item-card').forEach(card => {
-    const idx = parseInt(card.dataset.feedIdx, 10);
-    const article = filtered[idx];
-    const clickHandler = (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      if (article) openArticleModal(article);
-    };
-
-    card.addEventListener('click', clickHandler);
-    card.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        if (article) openArticleModal(article);
-      }
-    });
+  list.querySelectorAll('.news-item').forEach(btn => {
+    btn.addEventListener('click', () => openArticle(items[+btn.dataset.idx]));
   });
 }
 
 function formatTimeAgo(date) {
   if (!date || isNaN(date.getTime())) return '';
-  const seconds = Math.floor((new Date() - date) / 1000);
-  if (seconds < 60) return 'À l\'instant';
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `Il y a ${minutes} min`;
+  const minutes = Math.floor((Date.now() - date) / 60000);
+  if (minutes < 1) return 'À l’instant';
+  if (minutes < 60) return `il y a ${minutes} min`;
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `Il y a ${hours} h`;
-  return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  if (hours < 24) return `il y a ${hours} h`;
+  return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
 }
 
 function escapeHtml(str) {
@@ -823,200 +531,182 @@ function escapeHtml(str) {
     .replace(/'/g, '&#039;');
 }
 
-// ── In-App News Article Reader Modal ──────────────────────────────────────────
-function openArticleModal(article) {
+// ── Article sheet ─────────────────────────────────────────────────────────────
+const articleCache = new Map();
+let openedArticle = null;
+
+/** Extracts the article text (both sites share the same CMS layout). */
+function parseArticle(html) {
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  const body = doc.querySelector('.article-body .field-name-body') || doc.querySelector('.article-body');
+  const blocks = [];
+
+  body?.querySelectorAll('p, h2, h3, blockquote, li').forEach(el => {
+    if (el.parentElement.closest('blockquote, li')) return; // already taken with its parent
+    if (el.querySelector('iframe, video, script') || /iframe|embed|twitter|instagram/i.test(el.className)) return;
+    const text = el.textContent.replace(/\s+/g, ' ').trim();
+    if (!text || /^(à|a) lire (aussi|également)/i.test(text) || /^lire aussi/i.test(text)) return;
+    const tag = { H2: 'h4', H3: 'h4', BLOCKQUOTE: 'blockquote', LI: 'li' }[el.tagName] || 'p';
+    blocks.push({ tag, text, lead: el.classList.contains('dm_article-chapeau') });
+  });
+
+  // Fallback: structured data
+  if (!blocks.length) {
+    for (const script of doc.querySelectorAll('script[type="application/ld+json"]')) {
+      try {
+        const data = JSON.parse(script.textContent);
+        const body = (Array.isArray(data) ? data : [data]).find(d => d.articleBody)?.articleBody;
+        if (body) {
+          htmlToText(body).split(/\n+/).map(t => t.trim()).filter(Boolean)
+            .forEach(text => blocks.push({ tag: 'p', text }));
+          break;
+        }
+      } catch (e) { /* ignore */ }
+    }
+  }
+
+  const image = doc.querySelector('meta[property="og:image"]')?.getAttribute('content') || '';
+  return { blocks, image };
+}
+
+function renderArticleBody(blocks) {
+  const content = $('article-content');
+  content.innerHTML = '';
+  for (const b of blocks) {
+    const el = document.createElement(b.tag === 'li' ? 'p' : b.tag);
+    el.textContent = b.tag === 'li' ? `• ${b.text}` : b.text;
+    if (b.lead) el.className = 'lead';
+    content.appendChild(el);
+  }
+}
+
+async function loadFullArticle(article) {
+  let full = articleCache.get(article.link);
+  if (!full) {
+    full = parseArticle(await fetchSite(article.source, article.link));
+    if (full.blocks.length) articleCache.set(article.link, full);
+  }
+  if (openedArticle !== article) return; // sheet closed or another article opened
+  if (full.blocks.length) renderArticleBody(full.blocks);
+  else $('article-status').textContent = 'Texte complet indisponible.';
+  $('article-status').hidden = full.blocks.length > 0;
+
+  const img = $('article-img');
+  if (!article.image && full.image) {
+    img.src = full.image;
+    img.hidden = false;
+  }
+}
+
+function openArticle(article) {
   if (!article) return;
+  openedArticle = article;
+  $('article-source').textContent = article.source === 'cnews' ? 'CNews' : 'Europe 1';
+  $('article-source').dataset.source = article.source;
+  $('article-time').textContent = formatTimeAgo(article.pubDate);
+  $('article-title').textContent = article.title;
 
-  const overlay = document.getElementById('article-modal-overlay');
-  const titleEl = document.getElementById('modal-article-title');
-  const descEl = document.getElementById('modal-article-desc');
-  const timeEl = document.getElementById('modal-article-time');
-  const pillEl = document.getElementById('modal-source-pill');
-  const imgBox = document.getElementById('modal-article-img-box');
-  const imgEl = document.getElementById('modal-article-img');
+  // Summary first, replaced by the full text once downloaded
+  renderArticleBody(article.description ? [{ tag: 'p', text: article.description, lead: true }] : []);
+  const status = $('article-status');
+  status.hidden = !article.link;
+  status.innerHTML = `${ICONS.spinner}<span>Chargement de l’article…</span>`;
 
-  if (titleEl) titleEl.textContent = article.title || 'Actualité en direct';
-  if (descEl) descEl.textContent = article.description || 'Suivez les prochaines éditions en direct sur l\'antenne pour plus de précisions sur cette information.';
-  if (timeEl) timeEl.textContent = formatTimeAgo(article.pubDate) || 'En continu';
+  const img = $('article-img');
+  img.hidden = !article.image;
+  if (article.image) img.src = article.image; else img.removeAttribute('src');
 
-  if (pillEl) {
-    const isCnews = article.source === 'cnews';
-    pillEl.textContent = isCnews ? 'CNEWS DIRECT' : 'EUROPE 1 DIRECT';
-    pillEl.className = `modal-source-pill ${article.source}`;
-  }
+  const link = $('article-link');
+  link.hidden = !article.link;
+  link.href = article.link || '#';
 
-  if (imgBox && imgEl) {
-    if (article.image) {
-      imgEl.src = article.image;
-      imgEl.alt = article.title || 'Illustration';
-      imgBox.style.display = 'block';
-    } else {
-      imgBox.style.display = 'none';
-      imgEl.src = '';
-    }
-  }
+  const sheet = $('article-sheet');
+  sheet.classList.add('open');
+  sheet.setAttribute('aria-hidden', 'false');
+  sheet.querySelector('.sheet-body').scrollTop = 0;
 
-  overlay?.classList.add('open');
-  overlay?.setAttribute('aria-hidden', 'false');
-
-  // Push state to browser/webview history so Android back gesture returns cleanly
-  try {
-    history.pushState({ modal: 'article' }, '');
-  } catch (e) {
-    // Ignored in restricted contexts
-  }
-}
-
-function closeArticleModal() {
-  const overlay = document.getElementById('article-modal-overlay');
-  if (overlay && overlay.classList.contains('open')) {
-    overlay.classList.remove('open');
-    overlay.setAttribute('aria-hidden', 'true');
-  }
-}
-
-function setupArticleModal() {
-  const overlay = document.getElementById('article-modal-overlay');
-  const backBtn = document.getElementById('btn-modal-back');
-  const bottomBackBtn = document.getElementById('btn-modal-bottom-back');
-
-  const closeAndBack = () => {
-    closeArticleModal();
-    if (window.history.state && window.history.state.modal === 'article') {
-      window.history.back();
-    }
-  };
-
-  backBtn?.addEventListener('click', closeAndBack);
-  bottomBackBtn?.addEventListener('click', closeAndBack);
-
-  overlay?.addEventListener('click', (e) => {
-    if (e.target === overlay) {
-      closeAndBack();
-    }
-  });
-}
-
-// ── Native StatusBar Management (Preventing OS Status Bar Overlap) ────────────
-async function initNativeStatusBar() {
-  try {
-    await StatusBar.setOverlaysWebView({ overlay: false });
-    await StatusBar.setBackgroundColor({ color: '#04060a' });
-    await StatusBar.setStyle({ style: Style.Dark });
-  } catch (e) {
-    // Non-native / web environment
-  }
-}
-
-// ── Android Back Button & Popstate Support ────────────────────────────────────
-function setupAndroidBackButton() {
-  try {
-    App.addListener('backButton', () => {
-      const modal = document.getElementById('article-modal-overlay');
-      if (modal && modal.classList.contains('open')) {
-        closeArticleModal();
-        return;
-      }
-
-      const drawer = document.getElementById('news-drawer-overlay');
-      if (drawer && drawer.classList.contains('open')) {
-        drawer.classList.remove('open');
-        return;
-      }
-
-      // If no overlays are open, exit app smoothly
-      App.exitApp();
+  if (article.link) {
+    loadFullArticle(article).catch(() => {
+      if (openedArticle !== article) return;
+      status.textContent = 'Impossible de charger l’article complet.';
     });
-  } catch (e) {
-    console.warn('Capacitor App backButton listener non disponible:', e);
   }
-
-  // Also support window popstate (web / Android WebView back gesture)
-  window.addEventListener('popstate', () => {
-    const modal = document.getElementById('article-modal-overlay');
-    if (modal && modal.classList.contains('open')) {
-      closeArticleModal();
-    }
-    const drawer = document.getElementById('news-drawer-overlay');
-    if (drawer && drawer.classList.contains('open')) {
-      drawer.classList.remove('open');
-    }
-  });
 }
 
-// ── Drawer Open / Close / Filter Events ──────────────────────────────────────
-function setupDrawer() {
-  const overlay = document.getElementById('news-drawer-overlay');
-  const openBtn = document.getElementById('btn-open-feed');
-  const closeBtn = document.getElementById('btn-close-drawer');
-  const refreshBtn = document.getElementById('btn-refresh-rss');
-  const feedTabs = document.querySelectorAll('.feed-tab');
+function closeArticle() {
+  openedArticle = null;
+  const sheet = $('article-sheet');
+  if (!sheet.classList.contains('open')) return false;
+  sheet.classList.remove('open');
+  sheet.setAttribute('aria-hidden', 'true');
+  return true;
+}
 
-  const openDrawer = () => {
-    overlay?.classList.add('open');
-    renderDrawerNews();
-    try {
-      history.pushState({ drawer: true }, '');
-    } catch (e) {}
-  };
-
-  const closeDrawer = () => {
-    overlay?.classList.remove('open');
-    if (window.history.state && window.history.state.drawer) {
-      window.history.back();
-    }
-  };
-
-  openBtn?.addEventListener('click', openDrawer);
-  closeBtn?.addEventListener('click', closeDrawer);
-
-  overlay?.addEventListener('click', (e) => {
-    if (e.target === overlay) {
-      closeDrawer();
-    }
+// ── Setup ─────────────────────────────────────────────────────────────────────
+function setupEvents() {
+  $('np-toggle').addEventListener('click', togglePause);
+  $('np-stop').addEventListener('click', stop);
+  $('news-refresh').addEventListener('click', loadNews);
+  $('article-close').addEventListener('click', closeArticle);
+  $('article-sheet').addEventListener('click', (e) => {
+    if (e.target.id === 'article-sheet') closeArticle();
   });
 
-  refreshBtn?.addEventListener('click', () => {
-    loadAllNewsFeeds();
-  });
-
-  feedTabs.forEach(tab => {
+  document.querySelectorAll('#news-tabs button').forEach(tab => {
     tab.addEventListener('click', () => {
-      feedTabs.forEach(t => t.classList.remove('active'));
-      tab.classList.add('active');
-      drawerFilter = tab.dataset.source;
-      renderDrawerNews();
+      document.querySelectorAll('#news-tabs button').forEach(t => t.classList.toggle('active', t === tab));
+      newsFilter = tab.dataset.source;
+      renderNews();
     });
   });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeArticle();
+  });
+
+  // Browser / headset media keys (web version)
+  if (!isAndroid && 'mediaSession' in navigator) {
+    navigator.mediaSession.setActionHandler('play', resume);
+    navigator.mediaSession.setActionHandler('pause', pause);
+    navigator.mediaSession.setActionHandler('stop', stop);
+  }
 }
 
-// ── Initialization ────────────────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', () => {
-  initNativeStatusBar();
-  initBroadcastClock();
-  setupFilters();
-  setupDrawer();
-  setupArticleModal();
-  setupAndroidBackButton();
-  renderStations();
-  
-  const params = new URLSearchParams(window.location.search);
-  const initialStationId = params.get('station');
-  if (initialStationId) {
-    const s = streams.find(st => st.id === parseInt(initialStationId, 10));
-    if (s) {
-      selectStation(s);
-    } else {
-      renderStandby();
+function setupNative() {
+  if (!isAndroid) return;
+
+  StatusBar.setOverlaysWebView({ overlay: false }).catch(() => {});
+  StatusBar.setBackgroundColor({ color: '#07090d' }).catch(() => {});
+  StatusBar.setStyle({ style: Style.Dark }).catch(() => {});
+
+  // Back: close the article, leave fullscreen, otherwise send the app to the background
+  // (playback continues with the notification controls)
+  App.addListener('backButton', () => {
+    if (closeArticle()) return;
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+      return;
     }
-  } else {
-    renderStandby();
-  }
+    App.minimizeApp();
+  });
 
-  loadAllNewsFeeds();
+  // Service may already be playing (app reopened)
+  try {
+    const { state: status, station } = JSON.parse(bridge.getState());
+    window.onNativeState(status, station);
+  } catch (e) { /* ignore */ }
+}
 
-  // Auto-refresh news feeds every 3 minutes
-  setInterval(loadAllNewsFeeds, 180000);
+document.addEventListener('DOMContentLoaded', () => {
+  setupEvents();
+  setupNative();
+  render();
+
+  const initial = findStation(new URLSearchParams(location.search).get('station'));
+  if (initial && !state.station) play(initial);
+
+  loadNews();
+  setInterval(loadNews, 3 * 60 * 1000);
+  // Keep the "il y a X min" labels fresh
+  setInterval(renderNews, 60 * 1000);
 });
-
-

@@ -26,7 +26,8 @@
 
         </activity>
 
-        <!-- Foreground service for background media playback (keeps playing when screen is off) -->
+        <!-- Foreground service for background audio playback (screen off / app in background).
+             onTaskRemoved() stops it when the app is swiped away from recents. -->
         <service
             android:name=".PlaybackService"
             android:foregroundServiceType="mediaPlayback"
@@ -49,5 +50,6 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 </manifest>

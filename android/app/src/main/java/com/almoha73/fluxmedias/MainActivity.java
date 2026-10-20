@@ -1,641 +1,222 @@
 package com.almoha73.fluxmedias;
 
-import android.content.Context;
+import android.Manifest;
 import android.content.Intent;
-import android.graphics.Color;
+import android.content.SharedPreferences;
+import android.content.pm.ActivityInfo;
+import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.Looper;
 import android.os.PowerManager;
 import android.provider.Settings;
-import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
-import android.webkit.CookieManager;
 import android.webkit.JavascriptInterface;
-import android.webkit.WebChromeClient;
-import android.webkit.WebResourceRequest;
-import android.webkit.WebResourceResponse;
-import android.webkit.WebSettings;
 import android.webkit.WebView;
-import android.webkit.WebViewClient;
 import android.widget.FrameLayout;
-import android.widget.ImageButton;
-import androidx.media3.common.MediaItem;
-import androidx.media3.datasource.DefaultHttpDataSource;
-import androidx.media3.exoplayer.ExoPlayer;
-import androidx.media3.exoplayer.hls.HlsMediaSource;
-import androidx.media3.ui.PlayerView;
+
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsCompat;
+import androidx.core.view.WindowInsetsControllerCompat;
+
 import com.getcapacitor.BridgeActivity;
 import com.getcapacitor.BridgeWebChromeClient;
 
+import org.json.JSONObject;
+
 public class MainActivity extends BridgeActivity {
 
-    // Fullscreen state for the Dailymotion overlay
-    private View customView;
-    private WebChromeClient.CustomViewCallback customViewCallback;
+    private static final String PREFS = "fluxmedias";
 
-    // CPU WakeLock: prevents the CPU from sleeping when the screen is off
-    private PowerManager.WakeLock wakeLock;
+    // Live video playing in the WebView: handed off to the native audio service
+    // when the app goes to the background, so the sound continues with lock-screen controls.
+    private boolean videoActive = false;
+    private String  videoAudioUrl, videoTitle, videoStation;
+    private boolean handedOff = false;
 
-    // Native WebView that loads Dailymotion directly, independent of Capacitor
-    private WebView dmWebView;
-    private FrameLayout dmOverlay;
+    // ── JavaScript bridge (window.AndroidBridge) ─────────────────────────────
 
-    // Captured m3u8 URL from the Dailymotion WebView — sent to PlaybackService for native audio
-    private volatile String capturedM3u8Url = null;
-
-    // ── Native HLS video player (replaces WebView + Dailymotion) ──────────────
-    // Used for the TV mode when the stream URL is a direct .m3u8
-    private ExoPlayer    tvPlayer;
-    private FrameLayout  tvOverlay;
-
-    private static final String CANAL_USER_AGENT =
-        "CNews/8.7.0 (fr.canalplus.itele) Android/10";
-
-    // ── WakeLock ─────────────────────────────────────────────────────────────
-
-    private void acquireWakeLock() {
-        if (wakeLock == null) {
-            PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
-            if (pm != null) {
-                wakeLock = pm.newWakeLock(
-                    PowerManager.PARTIAL_WAKE_LOCK,
-                    "FluxMedias::PlaybackWakeLock"
-                );
-                wakeLock.setReferenceCounted(false);
-            }
-        }
-        if (wakeLock != null && !wakeLock.isHeld()) {
-            wakeLock.acquire();
-        }
-    }
-
-    private void releaseWakeLock() {
-        if (wakeLock != null && wakeLock.isHeld()) {
-            wakeLock.release();
-        }
-    }
-
-    // ── Battery optimization exemption ───────────────────────────────────────
-
-    /**
-     * Requests the user to disable battery optimization for this app.
-     * Required so Android does not throttle network access in Doze mode when screen is off.
-     */
-    private void requestBatteryOptimizationExemption() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
-            if (pm != null && !pm.isIgnoringBatteryOptimizations(getPackageName())) {
-                Intent intent = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
-                intent.setData(Uri.parse("package:" + getPackageName()));
-                startActivity(intent);
-            }
-        }
-    }
-
-    // ── Foreground service ────────────────────────────────────────────────────
-
-    private void startPlaybackService(String streamTitle, String videoId) {
-        Intent intent = new Intent(this, PlaybackService.class);
-        intent.setAction(PlaybackService.ACTION_PLAY_STREAM);
-        intent.putExtra(PlaybackService.EXTRA_TITLE, streamTitle);
-        if (videoId != null) intent.putExtra(PlaybackService.EXTRA_VIDEO_ID, videoId);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            startForegroundService(intent);
-        } else {
-            startService(intent);
-        }
-    }
-
-    private void stopPlaybackService() {
-        stopService(new Intent(this, PlaybackService.class));
-    }
-
-    // ── JavaScript bridge (called from main.js via AndroidBridge) ─────────────
-
-    public class DailymotionBridge {
+    public class NativeBridge {
         @JavascriptInterface
-        public void showPlayer(final String url, final String title) {
+        public void play(String url, String title, String stationId) {
             runOnUiThread(() -> {
-                if (url != null && url.contains(".m3u8")) {
-                    // Direct HLS stream → use native ExoPlayer + PlayerView (no WebView)
-                    showNativeVideoPlayer(url, title);
-                } else {
-                    // Legacy: Dailymotion embed URL → WebView
-                    showDailymotionOverlay(url, title);
-                }
+                askBatteryExemptionOnce();
+                PlaybackService.start(MainActivity.this, url, title, stationId);
             });
         }
 
         @JavascriptInterface
-        public void hidePlayer() {
+        public void pause() {
             runOnUiThread(() -> {
-                if (tvOverlay != null) {
-                    hideNativeVideoPlayer();
-                } else {
-                    hideDailymotionOverlay();
-                }
+                PlaybackService s = PlaybackService.getInstance();
+                if (s != null) s.pause();
             });
         }
 
-        /**
-         * Audio-only "radio" mode. The first parameter can be either:
-         *  - A direct HLS stream URL (starts with "http") → play directly with ExoPlayer
-         *  - A Dailymotion video ID → fetch stream URL via API first
-         *
-         * Does NOT open a WebView overlay. ExoPlayer plays in background even when
-         * the screen is off.
-         */
         @JavascriptInterface
-        public void startRadio(final String urlOrVideoId, final String title) {
-            Intent svcIntent = new Intent(MainActivity.this, PlaybackService.class);
-            svcIntent.setAction(PlaybackService.ACTION_PLAY_RADIO);
-            svcIntent.putExtra(PlaybackService.EXTRA_TITLE, title);
-            // Detect whether this is a direct URL or a Dailymotion video ID
-            if (urlOrVideoId != null && urlOrVideoId.startsWith("http")) {
-                svcIntent.putExtra(PlaybackService.EXTRA_STREAM_URL, urlOrVideoId);
-            } else {
-                svcIntent.putExtra(PlaybackService.EXTRA_VIDEO_ID, urlOrVideoId);
-            }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                startForegroundService(svcIntent);
-            } else {
-                startService(svcIntent);
-            }
+        public void resume() {
+            runOnUiThread(() -> {
+                PlaybackService s = PlaybackService.getInstance();
+                if (s != null) s.resume();
+            });
         }
 
-        /**
-         * Stop the background playback service entirely.
-         * Called when the user taps "⏹ Arrêter" in the app.
-         */
         @JavascriptInterface
-        public void stopStream() {
-            stopService(new Intent(MainActivity.this, PlaybackService.class));
+        public void stop() {
+            runOnUiThread(() -> {
+                PlaybackService s = PlaybackService.getInstance();
+                if (s != null) s.stop();
+            });
         }
 
-        /**
-         * Called from the JavaScript XHR/fetch interceptor injected into the WebView.
-         * Backup URL capture in case shouldInterceptRequest() misses the URL.
-         */
+        /** System font size setting (1.0 = default). The web UI scales its whole layout with it. */
         @JavascriptInterface
-        public void onStreamUrl(final String streamUrl) {
-            if (streamUrl == null || streamUrl.startsWith("blob:")) return;
-            if (capturedM3u8Url != null) return;
-            capturedM3u8Url = streamUrl;
+        public float getFontScale() {
+            return getResources().getConfiguration().fontScale;
+        }
+
+        @JavascriptInterface
+        public String getState() {
+            try {
+                return new JSONObject()
+                    .put("state", PlaybackService.getState())
+                    .put("station", PlaybackService.getStation())
+                    .toString();
+            } catch (Exception e) {
+                return "{\"state\":\"idle\",\"station\":\"\"}";
+            }
+        }
+
+        /** Called by the web UI when the TV video starts / stops playing. */
+        @JavascriptInterface
+        public void setVideoActive(boolean active, String audioUrl, String title, String stationId) {
+            runOnUiThread(() -> {
+                videoActive   = active;
+                videoAudioUrl = audioUrl;
+                videoTitle    = title;
+                videoStation  = stationId;
+            });
         }
     }
 
-
-    // ── Native WebView overlay ────────────────────────────────────────────────
-
-
-    private void showDailymotionOverlay(String url, String title) {
-        // Extract the Dailymotion video ID from the embed URL (e.g. "?video=x3b68jn")
-        String videoId = null;
-        try {
-            videoId = Uri.parse(url).getQueryParameter("video");
-        } catch (Exception ignored) {}
-
-        // If already open, just reload with the new URL
-        if (dmWebView != null) {
-            dmWebView.loadUrl(url);
-            startPlaybackService(title, videoId);
-            return;
-        }
-
-        // Start service immediately with the video ID — it will fetch the stream URL itself
-        startPlaybackService(title, videoId);
-        capturedM3u8Url = null; // reset so interception still works as fallback
-
-        dmWebView = new WebView(this);
-        WebSettings settings = dmWebView.getSettings();
-
-        // Full browser-level settings for reliable video playback
-        settings.setJavaScriptEnabled(true);
-        settings.setDomStorageEnabled(true);
-        settings.setMediaPlaybackRequiresUserGesture(false);
-        settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
-        settings.setSupportMultipleWindows(false);
-        settings.setLoadWithOverviewMode(true);
-        settings.setUseWideViewPort(true);
-        settings.setBuiltInZoomControls(false);
-        settings.setDisplayZoomControls(false);
-
-        // Remove WebView markers from User-Agent to look like standard Chrome
-        String ua = settings.getUserAgentString()
-            .replace("; wv", "")
-            .replaceAll("Version/\\d+\\.\\d+\\s?", "");
-        settings.setUserAgentString(ua);
-
-        CookieManager.getInstance().setAcceptThirdPartyCookies(dmWebView, true);
-
-        // WebViewClient:
-        // 1. Intercepts m3u8/mpd URLs via shouldInterceptRequest() (native HTTP requests)
-        // 2. Injects JS to intercept XHR/fetch (backup for HLS.js / Dash.js requests)
-        // 3. Injects JS to spoof Page Visibility API (prevents Dailymotion auto-pause)
-        final String streamTitle = title;
-        dmWebView.setWebViewClient(new WebViewClient() {
-
-            // JavaScript XHR/fetch interceptor — captures stream URL from within the page
-            private static final String JS_STREAM_INTERCEPTOR =
-                "(function(){" +
-                "if(window._fmIntercepted)return;window._fmIntercepted=true;" +
-                // Intercept XMLHttpRequest.open
-                "var origOpen=XMLHttpRequest.prototype.open;" +
-                "XMLHttpRequest.prototype.open=function(m,u){" +
-                "  if(typeof u==='string'&&(u.indexOf('.m3u8')>=0||u.indexOf('.mpd')>=0||u.indexOf('manifest')>=0)){" +
-                "    try{window.AndroidBridge.onStreamUrl(u);}catch(e){}" +
-                "  }" +
-                "  return origOpen.apply(this,arguments);" +
-                "};" +
-                // Intercept fetch
-                "if(window.fetch){" +
-                "  var origFetch=window.fetch;" +
-                "  window.fetch=function(input,init){" +
-                "    var u=typeof input==='string'?input:(input&&input.url?input.url:'');" +
-                "    if(u&&(u.indexOf('.m3u8')>=0||u.indexOf('.mpd')>=0||u.indexOf('manifest')>=0)){" +
-                "      try{window.AndroidBridge.onStreamUrl(u);}catch(e){}" +
-                "    }" +
-                "    return origFetch.apply(this,arguments);" +
-                "  };" +
-                "}" +
-                "})()"; 
-
-            private static final String VISIBILITY_SPOOF =
-                "(function(){" +
-                "try{Object.defineProperty(document,'hidden',{configurable:true,get:function(){return false;}});}catch(e){}" +
-                "try{Object.defineProperty(document,'visibilityState',{configurable:true,get:function(){return 'visible';}});}catch(e){}" +
-                "try{Object.defineProperty(Document.prototype,'hidden',{configurable:true,get:function(){return false;}});}catch(e){}" +
-                "try{Object.defineProperty(Document.prototype,'visibilityState',{configurable:true,get:function(){return 'visible';}});}catch(e){}" +
-                "try{window.dispatchEvent(new Event('focus'));}catch(e){}" +
-                "})()";
-
-            @Override
-            public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
-                String reqUrl = request.getUrl().toString();
-                // Capture first stream manifest (HLS m3u8 or MPEG-DASH mpd)
-                // Broad filter: exclude known ad/analytics domains only
-                boolean isManifest = reqUrl.contains(".m3u8")
-                    || reqUrl.contains(".mpd")
-                    || (reqUrl.contains("manifest") && reqUrl.contains("dailymotion"));
-                boolean isAd = reqUrl.contains("doubleclick")
-                    || reqUrl.contains("googlevideo")
-                    || reqUrl.contains("adsystem")
-                    || reqUrl.contains("googlesyndication");
-
-                if (capturedM3u8Url == null && isManifest && !isAd) {
-                    capturedM3u8Url = reqUrl;
-                    String cookies = CookieManager.getInstance().getCookie(reqUrl);
-                    Intent svcIntent = new Intent(MainActivity.this, PlaybackService.class);
-                    svcIntent.setAction(PlaybackService.ACTION_PLAY_STREAM);
-                    svcIntent.putExtra(PlaybackService.EXTRA_STREAM_URL, reqUrl);
-                    svcIntent.putExtra(PlaybackService.EXTRA_TITLE, streamTitle);
-
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        startForegroundService(svcIntent);
-                    } else {
-                        startService(svcIntent);
-                    }
-                }
-                return null;
-            }
-
-            @Override
-            public void onPageFinished(WebView view, String url) {
-                // Inject XHR/fetch interceptor first, then page visibility spoof
-                view.evaluateJavascript(JS_STREAM_INTERCEPTOR, null);
-                view.evaluateJavascript(VISIBILITY_SPOOF, null);
-            }
-        });
-
-        // Full-screen support within the overlay
-        dmWebView.setWebChromeClient(new WebChromeClient() {
-            @Override
-            public void onPermissionRequest(final android.webkit.PermissionRequest request) {
-                runOnUiThread(() -> {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                        request.grant(request.getResources());
-                    }
-                });
-            }
-
-            @Override
-            public void onShowCustomView(View view, CustomViewCallback callback) {
-                if (customView != null) {
-                    callback.onCustomViewHidden();
-                    return;
-                }
-                customView = view;
-                customViewCallback = callback;
-
-                FrameLayout decor = (FrameLayout) getWindow().getDecorView();
-                decor.addView(customView, new FrameLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.MATCH_PARENT
-                ));
-                if (dmWebView != null) dmWebView.setVisibility(View.GONE);
-
-                // Immersive fullscreen
-                getWindow().getDecorView().setSystemUiVisibility(
-                    View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-                    | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-                    | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-                    | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-                    | View.SYSTEM_UI_FLAG_FULLSCREEN
-                    | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-                );
-            }
-
-            @Override
-            public void onHideCustomView() {
-                if (customView == null) return;
-                FrameLayout decor = (FrameLayout) getWindow().getDecorView();
-                decor.removeView(customView);
-                customView = null;
-                if (customViewCallback != null) {
-                    customViewCallback.onCustomViewHidden();
-                    customViewCallback = null;
-                }
-                if (dmWebView != null) dmWebView.setVisibility(View.VISIBLE);
-                getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_VISIBLE);
-            }
-        });
-
-        dmWebView.loadUrl(url);
-
-        // Build full-screen overlay with close button
-        dmOverlay = new FrameLayout(this);
-        dmOverlay.setBackgroundColor(Color.BLACK);
-
-        dmOverlay.addView(dmWebView, new FrameLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.MATCH_PARENT
-        ));
-
-        // Close button top-left
-        ImageButton closeBtn = new ImageButton(this);
-        closeBtn.setImageResource(android.R.drawable.ic_menu_close_clear_cancel);
-        closeBtn.setBackgroundColor(0xCC000000);
-        closeBtn.setContentDescription("Fermer");
-        closeBtn.setOnClickListener(v -> hideDailymotionOverlay());
-        int btnSizePx = (int) (48 * getResources().getDisplayMetrics().density);
-        int marginPx  = (int) (12 * getResources().getDisplayMetrics().density);
-        FrameLayout.LayoutParams btnParams = new FrameLayout.LayoutParams(btnSizePx, btnSizePx);
-        btnParams.gravity  = Gravity.TOP | Gravity.START;
-        btnParams.topMargin   = marginPx + getStatusBarHeight();
-        btnParams.leftMargin  = marginPx;
-        dmOverlay.addView(closeBtn, btnParams);
-
-        // Add overlay above everything
-        FrameLayout decor = (FrameLayout) getWindow().getDecorView();
-        decor.addView(dmOverlay, new FrameLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.MATCH_PARENT
-        ));
-
-        // Service was already started with the video ID at the top of showDailymotionOverlay()
-    }
-
-
-    private void hideDailymotionOverlay() {
-        // Exit fullscreen first if active
-        if (customView != null) {
-            FrameLayout decor = (FrameLayout) getWindow().getDecorView();
-            decor.removeView(customView);
-            customView = null;
-            if (customViewCallback != null) {
-                customViewCallback.onCustomViewHidden();
-                customViewCallback = null;
-            }
-        }
-        if (dmOverlay != null) {
-            FrameLayout decor = (FrameLayout) getWindow().getDecorView();
-            decor.removeView(dmOverlay);
-            dmOverlay = null;
-        }
-        if (dmWebView != null) {
-            dmWebView.destroy();
-            dmWebView = null;
-        }
-        getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_VISIBLE);
-        capturedM3u8Url = null; // Reset so next open re-captures the stream URL
-        stopPlaybackService();
-    }
-
-    // ── Native HLS video player (ExoPlayer + PlayerView, no WebView) ──────────
-
-    /**
-     * Opens a full-screen ExoPlayer overlay playing the given HLS stream URL.
-     * No WebView, no Dailymotion — pure Canal+ CDN stream.
-     */
-    @androidx.annotation.OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)
-    private void showNativeVideoPlayer(String hlsUrl, String title) {
-        // If already open, just reload
-        if (tvPlayer != null) {
-            tvPlayer.stop();
-            DefaultHttpDataSource.Factory dsf =
-                new DefaultHttpDataSource.Factory().setUserAgent(CANAL_USER_AGENT);
-            HlsMediaSource ms = new HlsMediaSource.Factory(dsf)
-                .createMediaSource(MediaItem.fromUri(Uri.parse(hlsUrl)));
-            tvPlayer.setMediaSource(ms);
-            tvPlayer.prepare();
-            tvPlayer.play();
-            return;
-        }
-
-        // ── Create ExoPlayer ──
-        tvPlayer = new ExoPlayer.Builder(this).build();
-
-        DefaultHttpDataSource.Factory dsf =
-            new DefaultHttpDataSource.Factory().setUserAgent(CANAL_USER_AGENT);
-        HlsMediaSource mediaSource = new HlsMediaSource.Factory(dsf)
-            .createMediaSource(MediaItem.fromUri(Uri.parse(hlsUrl)));
-
-        tvPlayer.setMediaSource(mediaSource);
-        tvPlayer.setPlayWhenReady(true);
-        tvPlayer.prepare();
-
-        // ── Create PlayerView ──
-        PlayerView playerView = new PlayerView(this);
-        playerView.setPlayer(tvPlayer);
-        playerView.setUseController(true);        // show default controls
-        playerView.setKeepScreenOn(true);
-
-        // ── Build full-screen overlay ──
-        tvOverlay = new FrameLayout(this);
-        tvOverlay.setBackgroundColor(Color.BLACK);
-
-        // PlayerView fills the whole overlay
-        tvOverlay.addView(playerView, new FrameLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.MATCH_PARENT));
-
-        // Close button top-left
-        ImageButton closeBtn = new ImageButton(this);
-        closeBtn.setImageResource(android.R.drawable.ic_menu_close_clear_cancel);
-        closeBtn.setBackgroundColor(0xCC000000);
-        closeBtn.setContentDescription("Fermer");
-        closeBtn.setOnClickListener(v -> hideNativeVideoPlayer());
-        int btnSizePx = (int) (48 * getResources().getDisplayMetrics().density);
-        int marginPx  = (int) (12 * getResources().getDisplayMetrics().density);
-        FrameLayout.LayoutParams btnParams = new FrameLayout.LayoutParams(btnSizePx, btnSizePx);
-        btnParams.gravity  = Gravity.TOP | Gravity.START;
-        btnParams.topMargin   = marginPx + getStatusBarHeight();
-        btnParams.leftMargin  = marginPx;
-        tvOverlay.addView(closeBtn, btnParams);
-
-        // Add overlay above everything
-        FrameLayout decor = (FrameLayout) getWindow().getDecorView();
-        decor.addView(tvOverlay, new FrameLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.MATCH_PARENT));
-
-        // Immersive fullscreen
-        getWindow().getDecorView().setSystemUiVisibility(
-            View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-            | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-            | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-            | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-            | View.SYSTEM_UI_FLAG_FULLSCREEN
-            | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
-    }
-
-    private void hideNativeVideoPlayer() {
-        if (tvPlayer != null) {
-            tvPlayer.stop();
-            tvPlayer.release();
-            tvPlayer = null;
-        }
-        if (tvOverlay != null) {
-            FrameLayout decor = (FrameLayout) getWindow().getDecorView();
-            decor.removeView(tvOverlay);
-            tvOverlay = null;
-        }
-        getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_VISIBLE);
-
-        // Notify the JS app to reset its UI back to the home/idle state
-        try {
-            android.webkit.WebView wv = this.bridge.getWebView();
-            if (wv != null) {
-                wv.post(() -> wv.evaluateJavascript("window.goHome && window.goHome();", null));
-            }
-        } catch (Exception ignored) {}
-    }
-
-    private int getStatusBarHeight() {
-        int result = 0;
-        int resId = getResources().getIdentifier("status_bar_height", "dimen", "android");
-        if (resId > 0) result = getResources().getDimensionPixelSize(resId);
-        return result;
-    }
-
+    // ── Lifecycle ────────────────────────────────────────────────────────────
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        WebView webView = this.bridge.getWebView();
-        if (webView != null) {
-            WebSettings settings = webView.getSettings();
-            settings.setMediaPlaybackRequiresUserGesture(false);
-            settings.setDomStorageEnabled(true);
-            settings.setJavaScriptEnabled(true);
-            settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
+        WebView webView = bridge.getWebView();
+        webView.getSettings().setMediaPlaybackRequiresUserGesture(false);
+        // Text-only zoom breaks the layout (logos, buttons keep their size): the page
+        // applies the system font scale to the whole UI instead (see main.js).
+        webView.getSettings().setTextZoom(100);
+        webView.addJavascriptInterface(new NativeBridge(), "AndroidBridge");
+        webView.setWebChromeClient(new FullscreenChromeClient());
 
-            // Spoof User-Agent
-            String ua = settings.getUserAgentString()
-                .replace("; wv", "")
-                .replaceAll("Version/\\d+\\.\\d+\\s?", "");
-            settings.setUserAgentString(ua);
+        PlaybackService.setListener((state, station) -> callJs(
+            "window.onNativeState && window.onNativeState('" + state + "','" + station + "')"));
 
-            CookieManager cookieManager = CookieManager.getInstance();
-            cookieManager.setAcceptCookie(true);
-            cookieManager.setAcceptThirdPartyCookies(webView, true);
-
-            // Register bridge so main.js can call AndroidBridge.showPlayer() / hidePlayer()
-            webView.addJavascriptInterface(new DailymotionBridge(), "AndroidBridge");
-            webView.setWebChromeClient(new BridgeWebChromeClient(this.bridge));
-        }
-
-        // Ask the user once to disable battery optimization (needed for screen-off playback)
-        requestBatteryOptimizationExemption();
+        askNotificationPermissionOnce();
     }
 
     @Override
-    public void onBackPressed() {
-        if (tvOverlay != null) {
-            hideNativeVideoPlayer();  // close native ExoPlayer overlay
-        } else if (dmWebView != null) {
-            hideDailymotionOverlay(); // close legacy WebView overlay
+    public void onResume() {
+        super.onResume();
+        if (handedOff) {
+            handedOff = false;
+            callJs("window.onNativeReturn && window.onNativeReturn('" + PlaybackService.getState() + "')");
         } else {
-            super.onBackPressed();
+            // The user may have paused / stopped from the notification while we were away
+            callJs("window.onNativeState && window.onNativeState('"
+                + PlaybackService.getState() + "','" + PlaybackService.getStation() + "')");
         }
     }
 
     @Override
     public void onPause() {
         super.onPause();
-        // super.onPause() (Capacitor) may call pauseTimers() globally and asynchronously.
-        // We use a 1-second delay to guarantee our resumeTimers() runs LAST.
-        if (dmWebView != null) {
-            dmWebView.onResume();
-            new Handler(Looper.getMainLooper()).postDelayed(() -> {
-                if (dmWebView != null) {
-                    dmWebView.onResume();
-                    dmWebView.resumeTimers();
-                    // Force-play video elements in case Dailymotion paused via visibilitychange
-                    dmWebView.evaluateJavascript(
-                        "try{document.querySelectorAll('video').forEach(" +
-                        "function(v){if(v.paused){v.play();}});}catch(e){}", null);
-                }
-            }, 1000);
+        if (videoActive && !isChangingConfigurations() && !isFinishing()) {
+            handedOff = true;
+            callJs("window.onNativeHandoff && window.onNativeHandoff()");
+            PlaybackService.start(this, videoAudioUrl, videoTitle, videoStation);
         }
-        acquireWakeLock();
-    }
-
-    @Override
-    public void onResume() {
-        super.onResume();
-        if (dmWebView != null) {
-            dmWebView.onResume();
-            dmWebView.resumeTimers();
-        }
-        releaseWakeLock(); // Release CPU lock when app is in foreground (battery saving)
-    }
-
-    @Override
-    public void onStop() {
-        super.onStop();
-        // Same delayed-resume pattern as onPause()
-        if (dmWebView != null) {
-            dmWebView.onResume();
-            new Handler(Looper.getMainLooper()).postDelayed(() -> {
-                if (dmWebView != null) {
-                    dmWebView.onResume();
-                    dmWebView.resumeTimers();
-                    dmWebView.evaluateJavascript(
-                        "try{document.querySelectorAll('video').forEach(" +
-                        "function(v){if(v.paused){v.play();}});}catch(e){}", null);
-                }
-            }, 1000);
-        }
-        acquireWakeLock();
     }
 
     @Override
     public void onDestroy() {
-        releaseWakeLock();
-        // NOTE: do NOT stop PlaybackService here.
-        // onDestroy() is called when Android recycles the Activity (e.g. memory pressure),
-        // but the service + audio must keep running. The service only stops when the
-        // user explicitly presses Back to close the player (hideDailymotionOverlay).
-        if (dmWebView != null) {
-            dmWebView.destroy();
-            dmWebView = null;
-        }
+        PlaybackService.setListener(null);
         super.onDestroy();
+    }
+
+    private void callJs(String js) {
+        WebView wv = bridge != null ? bridge.getWebView() : null;
+        if (wv != null) wv.post(() -> wv.evaluateJavascript(js, null));
+    }
+
+    // ── Permissions (asked only once) ────────────────────────────────────────
+
+    private void askNotificationPermissionOnce() {
+        if (Build.VERSION.SDK_INT < 33) return;
+        if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) return;
+        SharedPreferences prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
+        if (prefs.getBoolean("notif_asked", false)) return;
+        prefs.edit().putBoolean("notif_asked", true).apply();
+        requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, 1);
+    }
+
+    /** Keeps the stream alive with the screen off on aggressive OEM battery savers. */
+    private void askBatteryExemptionOnce() {
+        PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
+        if (pm == null || pm.isIgnoringBatteryOptimizations(getPackageName())) return;
+        SharedPreferences prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
+        if (prefs.getBoolean("battery_asked", false)) return;
+        prefs.edit().putBoolean("battery_asked", true).apply();
+        try {
+            startActivity(new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
+                .setData(Uri.parse("package:" + getPackageName())));
+        } catch (Exception ignored) {}
+    }
+
+    // ── Video fullscreen (Capacitor's default client ignores it) ─────────────
+
+    private class FullscreenChromeClient extends BridgeWebChromeClient {
+        private View fullscreenView;
+        private CustomViewCallback fullscreenCallback;
+
+        FullscreenChromeClient() { super(bridge); }
+
+        @Override
+        public void onShowCustomView(View view, CustomViewCallback callback) {
+            if (fullscreenView != null) {
+                callback.onCustomViewHidden();
+                return;
+            }
+            fullscreenView = view;
+            fullscreenCallback = callback;
+            FrameLayout decor = (FrameLayout) getWindow().getDecorView();
+            decor.addView(view, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+
+            WindowInsetsControllerCompat ctl =
+                WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());
+            ctl.setSystemBarsBehavior(WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+            ctl.hide(WindowInsetsCompat.Type.systemBars());
+            setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
+        }
+
+        @Override
+        public void onHideCustomView() {
+            if (fullscreenView == null) return;
+            ((FrameLayout) getWindow().getDecorView()).removeView(fullscreenView);
+            fullscreenView = null;
+            if (fullscreenCallback != null) {
+                fullscreenCallback.onCustomViewHidden();
+                fullscreenCallback = null;
+            }
+            WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView())
+                .show(WindowInsetsCompat.Type.systemBars());
+            setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
+        }
     }
 }

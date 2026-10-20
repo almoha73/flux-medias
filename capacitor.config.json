@@ -3,9 +3,6 @@
   "appName": "FluxMedias",
   "webDir": "dist",
   "server": {
-    "allowNavigation": [
-      "*"
-    ],
     "cleartext": true
   }
 }
