@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Left waves -->
+    <path
+        android:pathData="M 45.47,55.53 A 11.48,11.48 0 0,1 45.47,40.17"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="4.76"
+        android:strokeLineCap="round" />
+    <path
+        android:pathData="M 39.68,60.74 A 19.27,19.27 0 0,1 39.68,34.96"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="4.76"
+        android:strokeLineCap="round" />
+    <!-- Right waves -->
+    <path
+        android:pathData="M 62.53,40.17 A 11.48,11.48 0 0,1 62.53,55.53"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="4.76"
+        android:strokeLineCap="round" />
+    <path
+        android:pathData="M 68.32,34.96 A 19.27,19.27 0 0,1 68.32,60.74"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="4.76"
+        android:strokeLineCap="round" />
+    <!-- Center transmitter dot -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M 54,43.42 a 4.43,4.43 0 1,0 0,8.86 a 4.43,4.43 0 1,0 0,-8.86 z" />
+    <!-- Antenna mast -->
+    <path
+        android:pathData="M 45.8,72.45 L 54,55.64 L 62.2,72.45"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="4.43"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M 48.8,66.3 L 59.2,66.3"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="3.77"
+        android:strokeLineCap="round" />
+</vector>

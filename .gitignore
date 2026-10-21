@@ -27,3 +27,6 @@ dist-ssr
 *.apk
 *.tar.gz
 jdk-21.0.2/
+
+# Vite cache
+.vite
