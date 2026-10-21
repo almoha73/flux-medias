@@ -302,6 +302,9 @@ body.has-player .content {
 /* ── News ──────────────────────────────────────────────────────────── */
 .segmented {
   display: inline-flex;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
   gap: 4px;
   padding: 4px;
   margin: 6px 0 12px;
@@ -309,11 +312,14 @@ body.has-player .content {
   border: 1px solid var(--border);
   border-radius: 999px;
 }
+.segmented::-webkit-scrollbar { display: none; }
 .segmented button {
+  flex: none;
   padding: 7px 14px;
   border-radius: 999px;
   font-size: 0.85rem;
   font-weight: 600;
+  white-space: nowrap;
   color: var(--text-2);
   transition: background 0.15s, color 0.15s;
 }
@@ -359,6 +365,7 @@ body.has-player .content {
 }
 .news-source[data-source="cnews"] { color: #ff5468; }
 .news-source[data-source="europe1"] { color: #7d9bff; }
+.news-source[data-source="lamontagne"] { color: #fb923c; }
 .news-time {
   font-size: 0.75rem;
   color: var(--text-3);

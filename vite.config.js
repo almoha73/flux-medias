@@ -22,6 +22,7 @@ export default defineConfig({
     proxy: {
       ...site('cnews', 'https://www.cnews.fr'),
       ...site('europe1', 'https://www.europe1.fr'),
+      ...site('lamontagne', 'https://www.lamontagne.fr'),
     },
   },
 });

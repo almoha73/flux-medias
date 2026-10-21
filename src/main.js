@@ -400,6 +400,18 @@ const isNative = Capacitor.isNativePlatform();
 const SITES = {
   cnews: 'https://www.cnews.fr',
   europe1: 'https://www.europe1.fr',
+  lamontagne: 'https://www.lamontagne.fr',
+};
+const FEEDS = {
+  cnews: 'https://www.cnews.fr/rss.xml',
+  europe1: 'https://www.europe1.fr/rss.xml',
+  // La Montagne n'expose plus de /rss.xml mais publie un flux XML Google News en temps réel
+  lamontagne: 'https://www.lamontagne.fr/sitemap-news.xml',
+};
+const SOURCE_LABELS = {
+  cnews: 'CNews',
+  europe1: 'Europe 1',
+  lamontagne: 'La Montagne',
 };
 
 function htmlToText(html) {
@@ -428,38 +440,60 @@ async function fetchSite(source, url) {
 
 function parseRSS(xmlText, source) {
   const xml = new DOMParser().parseFromString(xmlText, 'text/xml');
-  return [...xml.querySelectorAll('item')].map(item => {
-    const text = (sel) => item.querySelector(sel)?.textContent?.trim() || '';
-    const media = item.querySelector('enclosure[type^="image"]') || item.getElementsByTagName('media:content')[0];
+  const rssItems = [...xml.querySelectorAll('item')];
+  if (rssItems.length) {
+    return rssItems.map(item => {
+      const text = (sel) => item.querySelector(sel)?.textContent?.trim() || '';
+      const media = item.querySelector('enclosure[type^="image"]') || item.getElementsByTagName('media:content')[0];
+      return {
+        title: text('title'),
+        link: text('link').split('?')[0],
+        pubDate: new Date(text('pubDate') || Date.now()),
+        description: htmlToText(text('description')),
+        image: media?.getAttribute('url') || '',
+        source,
+      };
+    }).filter(a => a.title);
+  }
+
+  // Format Google News XML Sitemap (<urlset> / <url>, utilisé par La Montagne)
+  return [...xml.querySelectorAll('url')].slice(0, 60).map(urlEl => {
+    const tag = (name) => urlEl.getElementsByTagName(name)[0]?.textContent?.trim() || '';
+    const title = tag('news:title') || tag('n:title');
+    const link = tag('loc').split('?')[0];
+    const pubDate = tag('news:publication_date') || tag('n:publication_date');
     return {
-      title: text('title'),
-      link: text('link').split('?')[0],
-      pubDate: new Date(text('pubDate') || Date.now()),
-      description: htmlToText(text('description')),
-      image: media?.getAttribute('url') || '',
+      title: htmlToText(title),
+      link,
+      pubDate: new Date(pubDate || Date.now()),
+      description: '',
+      image: '',
       source,
     };
   }).filter(a => a.title);
 }
 
 async function fetchRSS(source) {
-  const rssUrl = `${SITES[source]}/rss.xml`;
+  const rssUrl = FEEDS[source];
   try {
     const items = parseRSS(await fetchSite(source, rssUrl), source);
     if (items.length) return items;
   } catch (e) { /* static hosting without proxy: use the gateway below */ }
 
-  // Fallback: public RSS → JSON gateway
+  // Fallback: public RSS → JSON gateway (avec Google News RSS pour La Montagne)
+  const fallbackRss = source === 'lamontagne'
+    ? 'https://news.google.com/rss/search?q=site:lamontagne.fr+-intitle:%22Avis+de+d%C3%A9c%C3%A8s%22&hl=fr&gl=FR&ceid=FR:fr'
+    : rssUrl;
   try {
-    const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rssUrl)}`);
+    const res = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(fallbackRss)}`);
     if (res.ok) {
       const data = await res.json();
       if (data.status === 'ok' && Array.isArray(data.items)) {
         return data.items.map(item => ({
-          title: item.title || '',
+          title: (item.title || '').replace(/\s*-\s*La Montagne$/i, ''),
           link: (item.link || '').split('?')[0],
           pubDate: item.pubDate ? new Date(item.pubDate.replace(' ', 'T') + 'Z') : new Date(),
-          description: htmlToText(item.description),
+          description: source === 'lamontagne' ? '' : htmlToText(item.description),
           image: item.thumbnail || item.enclosure?.link || '',
           source,
         })).filter(a => a.title);
@@ -474,12 +508,13 @@ async function fetchRSS(source) {
 async function loadNews() {
   const refresh = $('news-refresh');
   refresh.classList.add('spinning');
-  const [cnews, europe1] = await Promise.all([
+  const [cnews, europe1, lamontagne] = await Promise.all([
     fetchRSS('cnews'),
     fetchRSS('europe1'),
+    fetchRSS('lamontagne'),
   ]);
   refresh.classList.remove('spinning');
-  const merged = [...cnews, ...europe1].sort((a, b) => b.pubDate - a.pubDate);
+  const merged = [...cnews, ...europe1, ...lamontagne].sort((a, b) => b.pubDate - a.pubDate);
   // Keep the previous list if the network failed this time
   if (merged.length || !articles.length) articles = merged;
   renderNews();
@@ -498,7 +533,7 @@ function renderNews() {
     <button class="news-item" type="button" data-idx="${i}">
       <span class="news-text">
         <span class="news-top">
-          <span class="news-source" data-source="${a.source}">${a.source === 'cnews' ? 'CNews' : 'Europe 1'}</span>
+          <span class="news-source" data-source="${a.source}">${SOURCE_LABELS[a.source] || a.source}</span>
           <span class="news-time">${formatTimeAgo(a.pubDate)}</span>
         </span>
         <span class="news-title">${escapeHtml(a.title)}</span>
@@ -535,14 +570,28 @@ function escapeHtml(str) {
 const articleCache = new Map();
 let openedArticle = null;
 
-/** Extracts the article text (both sites share the same CMS layout). */
+/** Extracts the article text (CNews, Europe 1, and La Montagne). */
 function parseArticle(html) {
   const doc = new DOMParser().parseFromString(html, 'text/html');
-  const body = doc.querySelector('.article-body .field-name-body') || doc.querySelector('.article-body');
+
+  // Reconstitute Next.js streamed Suspense chunks (La Montagne)
+  doc.querySelectorAll('template[id^="P:"]').forEach(tpl => {
+    const chunk = doc.getElementById('S:' + tpl.id.slice(2));
+    if (chunk) tpl.replaceWith(...chunk.childNodes);
+  });
+
+  const body =
+    doc.querySelector('.article-body .field-name-body') ||
+    doc.querySelector('.article-body') ||
+    doc.querySelector('#article-content-start .article');
   const blocks = [];
+
+  const chapo = doc.querySelector('.typo-p1-chapo')?.textContent?.replace(/\s+/g, ' ').trim();
+  if (chapo) blocks.push({ tag: 'p', text: chapo, lead: true });
 
   body?.querySelectorAll('p, h2, h3, blockquote, li').forEach(el => {
     if (el.parentElement.closest('blockquote, li')) return; // already taken with its parent
+    if (el.closest('.bg-neutral-2, [class*="print:hidden"]')) return; // UI/newsletter/related boxes
     if (el.querySelector('iframe, video, script') || /iframe|embed|twitter|instagram/i.test(el.className)) return;
     const text = el.textContent.replace(/\s+/g, ' ').trim();
     if (!text || /^(à|a) lire (aussi|également)/i.test(text) || /^lire aussi/i.test(text)) return;
@@ -593,6 +642,7 @@ async function loadFullArticle(article) {
 
   const img = $('article-img');
   if (!article.image && full.image) {
+    article.image = full.image;
     img.src = full.image;
     img.hidden = false;
   }
@@ -601,7 +651,7 @@ async function loadFullArticle(article) {
 function openArticle(article) {
   if (!article) return;
   openedArticle = article;
-  $('article-source').textContent = article.source === 'cnews' ? 'CNews' : 'Europe 1';
+  $('article-source').textContent = SOURCE_LABELS[article.source] || article.source;
   $('article-source').dataset.source = article.source;
   $('article-time').textContent = formatTimeAgo(article.pubDate);
   $('article-title').textContent = article.title;
